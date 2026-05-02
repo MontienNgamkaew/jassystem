@@ -42,7 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 // Fetch Products
-$products = $pdo->query("SELECT * FROM products ORDER BY id DESC")->fetchAll();
+$allowed_sort_cols = ['code', 'name', 'unit_price'];
+$sort = isset($_GET['sort']) && in_array($_GET['sort'], $allowed_sort_cols) ? $_GET['sort'] : 'id';
+$order = isset($_GET['order']) && $_GET['order'] === 'asc' ? 'ASC' : 'DESC';
+
+$products = $pdo->query("SELECT * FROM products ORDER BY $sort $order")->fetchAll();
 
 include_once 'includes/header.php';
 ?>
@@ -60,17 +64,19 @@ include_once 'includes/header.php';
 </div>
 
 <?php if (isset($error)): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+<script>document.addEventListener('DOMContentLoaded',()=>swalError(<?= json_encode($error) ?>));</script>
 <?php endif; ?>
 
 <?php if (isset($_GET['msg'])): ?>
-    <?php if ($_GET['msg'] == 'imported'): ?>
-        <div class="alert alert-success">นำเข้าข้อมูลสินค้าสำเร็จ (นำเข้าสำเร็จ: <?= (int)($_GET['success'] ?? 0) ?>, ข้าม: <?= (int)($_GET['skipped'] ?? 0) ?>)</div>
-    <?php elseif ($_GET['msg'] == 'import_error'): ?>
-        <div class="alert alert-danger">เกิดข้อผิดพลาดในการนำเข้าไฟล์ หรือรูปแบบไฟล์ไม่ถูกต้อง</div>
-    <?php else: ?>
-        <div class="alert alert-success">ทำรายการสำเร็จ</div>
-    <?php endif; ?>
+<script>document.addEventListener('DOMContentLoaded',()=>{
+<?php if ($_GET['msg'] == 'imported'): ?>
+    swalSuccess('นำเข้าข้อมูลสินค้าสำเร็จ สำเร็จ: <?= (int)($_GET['success'] ?? 0) ?> ราย, ข้าม: <?= (int)($_GET['skipped'] ?? 0) ?> ราย', 3500);
+<?php elseif ($_GET['msg'] == 'import_error'): ?>
+    swalError('เกิดข้อผิดพลาดในการนำเข้าไฟล์ หรือรูปแบบไฟล์ไม่ถูกต้อง');
+<?php else: ?>
+    swalSuccess('ทำรายการสำเร็จ');
+<?php endif; ?>
+});</script>
 <?php endif; ?>
 
 <div class="card card-custom">
@@ -78,31 +84,41 @@ include_once 'includes/header.php';
         <div class="table-responsive">
             <table class="table table-custom table-hover mb-0">
                 <thead>
+                    <?php 
+                    function sortLink($colName, $label, $currentSort, $currentOrder, $alignClass = '') {
+                        $newOrder = ($currentSort === $colName && $currentOrder === 'ASC') ? 'desc' : 'asc';
+                        $icon = '<i class="bi bi-arrow-down-up text-muted opacity-25 ms-1"></i>';
+                        if ($currentSort === $colName) {
+                            $icon = $currentOrder === 'ASC' ? '<i class="bi bi-caret-up-fill ms-1 text-primary"></i>' : '<i class="bi bi-caret-down-fill ms-1 text-primary"></i>';
+                        }
+                        return "<a href='products.php?sort=$colName&order=$newOrder' class='text-decoration-none text-dark d-flex align-items-center $alignClass'>$label $icon</a>";
+                    }
+                    ?>
                     <tr>
-                        <th class="ps-4">รหัสสินค้า</th>
-                        <th>ชื่อสินค้า</th>
-                        <th>หน่วยนับ</th>
-                        <th class="text-end">ราคาต่อหน่วย</th>
-                        <th class="text-center pe-4">จัดการ</th>
+                        <th class="ps-3" width="20%"><?= sortLink('code', 'รหัสสินค้า', $sort, $order) ?></th>
+                        <th width="40%"><?= sortLink('name', 'ชื่อสินค้า', $sort, $order) ?></th>
+                        <th width="15%">หน่วยนับ</th>
+                        <th width="15%"><?= sortLink('unit_price', 'ราคาต่อหน่วย', $sort, $order, 'justify-content-end') ?></th>
+                        <th class="text-center pe-3" width="10%">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($products) > 0): ?>
                         <?php foreach ($products as $p): ?>
                         <tr>
-                            <td class="ps-4 fw-bold"><?= htmlspecialchars($p['code']) ?></td>
+                            <td class="ps-3 fw-bold"><?= htmlspecialchars($p['code']) ?></td>
                             <td><?= htmlspecialchars($p['name']) ?></td>
                             <td><?= htmlspecialchars($p['unit']) ?></td>
                             <td class="text-end"><?= number_format($p['unit_price'], 2) ?></td>
-                            <td class="text-center pe-4">
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        onclick='editProduct(<?= json_encode($p) ?>)'>
+                            <td class="text-center pe-3">
+                                <button class="btn btn-outline-primary btn-table-action" 
+                                        onclick='editProduct(<?= json_encode($p) ?>)' title="แก้ไข">
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <a href="products.php?delete=<?= $p['id'] ?>" class="btn btn-sm btn-outline-danger" 
-                                   onclick="return confirm('คุณต้องการลบสินค้านี้ใช่หรือไม่?');">
+                                <button type="button" class="btn btn-outline-danger btn-table-action" 
+                                        onclick="confirmDelete(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'])) ?>')" title="ลบ">
                                     <i class="bi bi-trash"></i>
-                                </a>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -167,6 +183,11 @@ include_once 'includes/header.php';
             คอลัมน์ B: ชื่อสินค้า (Name)<br>
             คอลัมน์ C: หน่วยนับ (Unit)<br>
             คอลัมน์ D: ราคาต่อหน่วย (Price)
+            <div class="mt-2 text-center">
+                <a href="assets/samples/sample_products.csv" class="btn btn-sm btn-outline-primary" download>
+                    <i class="bi bi-download"></i> ดาวน์โหลดไฟล์ตัวอย่าง CSV
+                </a>
+            </div>
         </div>
         <div class="mb-3">
             <label class="form-label">เลือกไฟล์ CSV <span class="text-danger">*</span></label>
@@ -189,6 +210,14 @@ function clearForm() {
     document.getElementById('productName').value = '';
     document.getElementById('productUnit').value = '';
     document.getElementById('productPrice').value = '';
+}
+
+function confirmDelete(id, name) {
+    swalConfirm('ยืนยันการลบ', `คุณต้องการลบสินค้า "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `products.php?delete=${id}`;
+        }
+    });
 }
 
 function editProduct(product) {

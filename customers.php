@@ -19,19 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $id = $_POST['id'] ?? '';
     $name = $_POST['name'];
     $tax_id = $_POST['tax_id'];
+    $phone = $_POST['phone'] ?? '';
     $address = $_POST['address'];
 
     if ($id) {
         // Update
-        $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=? WHERE id=?");
-        $stmt->execute([$name, $tax_id, $address, $id]);
+        $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=?, phone=? WHERE id=?");
+        $stmt->execute([$name, $tax_id, $address, $phone, $id]);
         header("Location: customers.php?msg=updated");
         exit();
     } else {
         // Insert
         try {
-            $stmt = $pdo->prepare("INSERT INTO customers (name, tax_id, address) VALUES (?, ?, ?)");
-            $stmt->execute([$name, $tax_id, $address]);
+            $stmt = $pdo->prepare("INSERT INTO customers (name, tax_id, address, phone) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$name, $tax_id, $address, $phone]);
             header("Location: customers.php?msg=added");
             exit();
         } catch (\PDOException $e) {
@@ -41,7 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 // Fetch Customers
-$customers = $pdo->query("SELECT * FROM customers ORDER BY id DESC")->fetchAll();
+$allowed_sort_cols = ['name', 'phone', 'tax_id'];
+$sort = isset($_GET['sort']) && in_array($_GET['sort'], $allowed_sort_cols) ? $_GET['sort'] : 'id';
+$order = isset($_GET['order']) && $_GET['order'] === 'asc' ? 'ASC' : 'DESC';
+
+$customers = $pdo->query("SELECT * FROM customers ORDER BY $sort $order")->fetchAll();
 
 include_once 'includes/header.php';
 ?>
@@ -54,11 +59,11 @@ include_once 'includes/header.php';
 </div>
 
 <?php if (isset($error)): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+<script>document.addEventListener('DOMContentLoaded',()=>swalError(<?= json_encode($error) ?>));</script>
 <?php endif; ?>
 
 <?php if (isset($_GET['msg'])): ?>
-    <div class="alert alert-success">ทำรายการสำเร็จ</div>
+<script>document.addEventListener('DOMContentLoaded',()=>swalSuccess('ทำรายการสำเร็จ'));</script>
 <?php endif; ?>
 
 <div class="card card-custom">
@@ -66,35 +71,47 @@ include_once 'includes/header.php';
         <div class="table-responsive">
             <table class="table table-custom table-hover mb-0">
                 <thead>
+                    <?php 
+                    function sortLinkCust($colName, $label, $currentSort, $currentOrder, $alignClass = '') {
+                        $newOrder = ($currentSort === $colName && $currentOrder === 'ASC') ? 'desc' : 'asc';
+                        $icon = '<i class="bi bi-arrow-down-up text-muted opacity-25 ms-1"></i>';
+                        if ($currentSort === $colName) {
+                            $icon = $currentOrder === 'ASC' ? '<i class="bi bi-caret-up-fill ms-1 text-primary"></i>' : '<i class="bi bi-caret-down-fill ms-1 text-primary"></i>';
+                        }
+                        return "<a href='customers.php?sort=$colName&order=$newOrder' class='text-decoration-none text-dark d-flex align-items-center $alignClass'>$label $icon</a>";
+                    }
+                    ?>
                     <tr>
-                        <th class="ps-4">ชื่อลูกค้า / บริษัท</th>
-                        <th>เลขประจำตัวผู้เสียภาษี</th>
-                        <th>ที่อยู่</th>
-                        <th class="text-center pe-4">จัดการ</th>
+                        <th class="ps-3" width="30%"><?= sortLinkCust('name', 'ชื่อลูกค้า/บริษัท', $sort, $order) ?></th>
+                        <th width="15%">เลขผู้เสียภาษี</th>
+                        <th width="35%">ที่อยู่</th>
+                        <th width="10%">เบอร์โทร</th>
+                        <th class="text-center pe-3" width="10%">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (count($customers) > 0): ?>
                         <?php foreach ($customers as $c): ?>
                         <tr>
-                            <td class="ps-4 fw-bold"><?= htmlspecialchars($c['name']) ?></td>
-                            <td><?= htmlspecialchars($c['tax_id']) ?></td>
-                            <td><?= htmlspecialchars($c['address']) ?></td>
-                            <td class="text-center pe-4">
-                                <button class="btn btn-sm btn-outline-primary" 
+                            <td class="ps-3 fw-bold text-primary"><?= htmlspecialchars($c['name']) ?></td>
+                            <td><?= htmlspecialchars($c['tax_id'] ?: '-') ?></td>
+                            <td><?= htmlspecialchars($c['address'] ?: '-') ?></td>
+                            <td><?= htmlspecialchars($c['phone'] ?: '-') ?></td>
+                            <td class="text-center pe-3">
+                                <button class="btn btn-outline-primary btn-table-action" title="แก้ไข"
                                         onclick='editCustomer(<?= json_encode($c) ?>)'>
                                     <i class="bi bi-pencil"></i>
                                 </button>
-                                <a href="customers.php?delete=<?= $c['id'] ?>" class="btn btn-sm btn-outline-danger" 
-                                   onclick="return confirm('คุณต้องการลบลูกค้านี้ใช่หรือไม่?');">
+                                <button type="button" class="btn btn-outline-danger btn-table-action" title="ลบ"
+                                   onclick="confirmDelete(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['name'])) ?>')">
                                     <i class="bi bi-trash"></i>
-                                </a>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="4" class="text-center py-4 text-muted">ยังไม่มีข้อมูลลูกค้า</td>
+                            <td colspan="5" class="text-center py-4 text-muted">ยังไม่มีข้อมูลลูกค้า</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -122,6 +139,10 @@ include_once 'includes/header.php';
             <input type="text" class="form-control" name="tax_id" id="customerTaxId">
         </div>
         <div class="mb-3">
+            <label class="form-label">เบอร์โทรศัพท์</label>
+            <input type="text" class="form-control" name="phone" id="customerPhone">
+        </div>
+        <div class="mb-3">
             <label class="form-label">ที่อยู่</label>
             <textarea class="form-control" name="address" id="customerAddress" rows="3"></textarea>
         </div>
@@ -135,11 +156,20 @@ include_once 'includes/header.php';
 </div>
 
 <script>
+function confirmDelete(id, name) {
+    swalConfirm('ยืนยันการลบ', `คุณต้องการลบลูกค้า "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = `customers.php?delete=${id}`;
+        }
+    });
+}
+
 function clearForm() {
     document.getElementById('modalTitle').innerText = 'เพิ่มลูกค้าใหม่';
     document.getElementById('customerId').value = '';
     document.getElementById('customerName').value = '';
     document.getElementById('customerTaxId').value = '';
+    document.getElementById('customerPhone').value = '';
     document.getElementById('customerAddress').value = '';
 }
 
@@ -148,6 +178,7 @@ function editCustomer(customer) {
     document.getElementById('customerId').value = customer.id;
     document.getElementById('customerName').value = customer.name;
     document.getElementById('customerTaxId').value = customer.tax_id;
+    document.getElementById('customerPhone').value = customer.phone || '';
     document.getElementById('customerAddress').value = customer.address;
     
     var myModal = new bootstrap.Modal(document.getElementById('customerModal'));

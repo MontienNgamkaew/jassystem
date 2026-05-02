@@ -84,7 +84,7 @@ include_once 'includes/header.php';
 </div>
 
 <?php if (isset($error)): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+<script>document.addEventListener('DOMContentLoaded',()=>swalError(<?= json_encode($error) ?>));</script>
 <?php endif; ?>
 
 <form method="POST" id="packageForm">
@@ -311,10 +311,11 @@ async function submitQuickAddProduct(e) {
             
             quickAddModal.hide();
         } else {
-            alert(data.message);
+            swalError(data.message || 'เกิดข้อผิดพลาด');
         }
-    } catch (err) {
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+    } catch(err) {
+        console.error(err);
+        swalError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
     }
 }
 </script>
