@@ -8,9 +8,11 @@ $companies = $pdo->query("SELECT id, name_th, is_default FROM companies ORDER BY
 
 // Handle Form Submit (Save Document)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'save') {
-    $type = $_POST['type'];
-    $date = $_POST['date'];
-    $customer_id = $_POST['customer_id'];
+    $type = $_POST['type'] ?? 'Quote';
+    $date = $_POST['date'] ?? date('Y-m-d');
+    if (empty($date)) $date = date('Y-m-d');
+    
+    $customer_id = $_POST['customer_id'] ?? 0;
     $company_id = $_POST['company_id'] ?? 0;
     
     $items_code = $_POST['item_code'] ?? [];
@@ -579,8 +581,19 @@ function backToEdit() {
 
 function toggleDateInput() {
     const show = document.getElementById('noDate').checked;
-    document.getElementById('docDate').disabled = !show;
-    document.getElementById('docDate').style.opacity = show ? '1' : '0.4';
+    const dateInput = document.getElementById('docDate');
+    
+    // Instead of completely disabling it (which prevents it from being sent to PHP),
+    // we make it readOnly and look disabled.
+    if (!show) {
+        dateInput.readOnly = true;
+        dateInput.style.pointerEvents = 'none';
+        dateInput.style.opacity = '0.5';
+    } else {
+        dateInput.readOnly = false;
+        dateInput.style.pointerEvents = 'auto';
+        dateInput.style.opacity = '1';
+    }
 }
 
 function togglePackageForm() {

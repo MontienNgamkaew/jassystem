@@ -90,8 +90,22 @@ $vat_amount  = $include_vat ? round($subtotal * 0.07, 2) : 0;
 $grand_total = $subtotal + $vat_amount;
 
 // ---- Document meta ----
-$type_map  = ['Quote' => 'ใบเสนอราคา / Quotation', 'Invoice' => 'ใบแจ้งหนี้ / Invoice', 'Receipt' => 'ใบเสร็จรับเงิน / Receipt'];
+$type_map  = ['Quote' => 'ใบเสนอราคา / Quotation', 'Invoice' => 'ใบส่งของ/ใบแจ้งหนี้<br><span style="font-size:10pt;">Delivery Order / Invoice</span>', 'Receipt' => 'ใบเสร็จรับเงิน / Receipt'];
 $doc_title = $type_map[$doc['type']] ?? $doc['type'];
+
+// Signature Labels and Colors
+$sig_left_text = 'ผู้สั่งซื้อ';
+$sig_right_text = 'ผู้เสนอราคา';
+$title_bg_color = '#c8e6c9'; // Green for Quote
+if ($doc['type'] === 'Invoice') {
+    $sig_left_text = 'ผู้รับของ';
+    $sig_right_text = 'ผู้ส่งของ';
+    $title_bg_color = '#ffe0b2'; // Orange for Invoice
+} else if ($doc['type'] === 'Receipt') {
+    $sig_left_text = 'ผู้จ่ายเงิน';
+    $sig_right_text = 'ผู้รับเงิน';
+    $title_bg_color = '#bbdefb'; // Blue for Receipt
+}
 $doc_date  = date('d/m/', strtotime($doc['date'])) . (date('Y', strtotime($doc['date'])) + 543);
 $payment_terms = htmlspecialchars($settings['payment_terms'] ?? 'ภายใน 30 วัน');
 $warranty  = nl2br(htmlspecialchars($settings['warranty_terms'] ?? ''));
@@ -148,7 +162,7 @@ $html = '<!DOCTYPE html>
 </table>
 
 <!-- DOCUMENT TITLE -->
-<div style="background:#e8b4b8;text-align:center;font-size:12pt;font-weight:bold;padding:5px 0;margin-bottom:7px;">
+<div style="background:'.$title_bg_color.';text-align:center;font-size:12pt;font-weight:bold;padding:5px 0;margin-bottom:7px;">
     '.$doc_title.'
 </div>
 
@@ -218,18 +232,16 @@ $html = '<!DOCTYPE html>
 <table width="100%" style="margin-top:20px;font-size:9.5pt;">
 <tr>
     <td width="45%" style="text-align:center;vertical-align:bottom;padding:8px;">
-        <div style="font-weight:bold;margin-bottom:4px;">ผู้สั่งซื้อ</div>
+        <div style="font-weight:bold;margin-bottom:4px;">'.$sig_left_text.'</div>
         <div style="margin-bottom:65px;">&nbsp;<br>&nbsp;<br>&nbsp;</div>
-        <div style="border-top:1px solid #333;padding-top:4px;width:85%;margin:0 auto;">&nbsp;</div>
         <div style="margin-top:8px;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
         '.$date_row.'
     </td>
     <td width="10%"></td>
     <td width="45%" style="text-align:center;vertical-align:bottom;padding:8px;">
-        <div style="font-weight:bold;margin-bottom:4px;">ผู้เสนอราคา</div>
+        <div style="font-weight:bold;margin-bottom:4px;">'.$sig_right_text.'</div>
         <div style="margin-bottom:5px;">&nbsp;<br>&nbsp;</div>
         '.$stamp_tag.'
-        <div style="border-top:1px solid #333;padding-top:4px;width:85%;margin:0 auto;">&nbsp;</div>
         <div style="margin-top:8px;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
         '.$date_row.'
     </td>
