@@ -1,4 +1,12 @@
-<!DOCTYPE html>
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+// Auth guard — redirect to login if not authenticated
+if (!isset($_SESSION['user_id'])) {
+    $loginPath = (strpos($_SERVER['PHP_SELF'], '/includes/') !== false) ? '../login.php' : 'login.php';
+    header('Location: ' . $loginPath);
+    exit;
+}
+?><!DOCTYPE html>
 <html lang="th">
 <head>
     <meta charset="UTF-8">
@@ -91,6 +99,12 @@ function swalInfo(msg) {
             <i class="bi bi-buildings"></i>
             <span>จัดการข้อมูลบริษัท</span>
         </a>
+        <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+        <a href="users.php" class="sidebar-link <?= $currentPage=='users.php' ? 'active' : '' ?>">
+            <i class="bi bi-people-fill"></i>
+            <span>จัดการผู้ใช้งาน</span>
+        </a>
+        <?php endif; ?>
     </nav>
 
     <!-- Sidebar Footer -->
@@ -119,12 +133,26 @@ function swalInfo(msg) {
                 'documents.php'       => '<i class="bi bi-archive me-2"></i>ประวัติเอกสาร',
                 'companies.php'       => '<i class="bi bi-buildings me-2"></i>จัดการข้อมูลบริษัท',
                 'company_form.php'    => '<i class="bi bi-buildings me-2"></i>แก้ไขข้อมูลบริษัท',
+                'users.php'           => '<i class="bi bi-people-fill me-2"></i>จัดการผู้ใช้งาน',
             ];
             echo $titles[$currentPage] ?? '<i class="bi bi-house me-2"></i>หน้าหลัก';
             ?>
         </div>
-        <div class="topbar-right">
+        <div class="topbar-right d-flex align-items-center gap-3">
             <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i><?= date('d/m/') . (date('Y') + 543) ?></span>
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-person-circle fs-5 text-primary"></i>
+                <div class="lh-sm" style="font-size:.8rem;">
+                    <div class="fw-bold text-dark"><?= htmlspecialchars($_SESSION['full_name'] ?: $_SESSION['username']) ?></div>
+                    <div class="text-muted" style="font-size:.72rem;">
+                        <?= $_SESSION['role'] === 'admin' ? '<span class="badge bg-danger" style="font-size:.65rem;">Admin</span>' : '<span class="badge bg-secondary" style="font-size:.65rem;">User</span>' ?>
+                    </div>
+                </div>
+            </div>
+            <a href="logout.php" class="btn btn-outline-danger btn-sm" title="ออกจากระบบ"
+               onclick="return confirm('ออกจากระบบใช่หรือไม่?');">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
     </header>
 
