@@ -21,11 +21,29 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     }
 }
 
+// Handle sorting
+$sort = isset($_GET['sort']) ? $_GET['sort'] : 'created_at';
+$order = isset($_GET['order']) && $_GET['order'] === 'asc' ? 'asc' : 'desc';
+
+// Map sort keys to actual database columns
+$sort_map = [
+    'doc_no' => 'd.doc_no',
+    'type' => 'd.type',
+    'date' => 'd.date',
+    'company_name' => 'comp.name_th',
+    'customer_name' => 'c.name',
+    'total_amount' => 'd.total_amount',
+    'created_at' => 'd.created_at'
+];
+
+$sort_col = $sort_map[$sort] ?? 'd.created_at';
+$order_sql = $order === 'asc' ? 'ASC' : 'DESC';
+
 $sql = "SELECT d.*, c.name as customer_name, comp.name_th as company_name 
         FROM documents d 
         LEFT JOIN customers c ON d.customer_id = c.id 
         LEFT JOIN companies comp ON d.company_id = comp.id
-        ORDER BY d.created_at DESC";
+        ORDER BY {$sort_col} {$order_sql}, d.id DESC";
 $documents = $pdo->query($sql)->fetchAll();
 
 $type_labels = [
@@ -33,6 +51,16 @@ $type_labels = [
     'Invoice' => ['label' => 'ใบแจ้งหนี้',     'class' => 'bg-warning text-dark'],
     'Receipt' => ['label' => 'ใบเสร็จรับเงิน', 'class' => 'bg-success'],
 ];
+
+function sortLinkDoc($column, $label, $current_sort, $current_order, $extra_class = '') {
+    $icon = '';
+    if ($current_sort === $column) {
+        $icon = $current_order === 'asc' ? '<i class="bi bi-caret-up-fill ms-1"></i>' : '<i class="bi bi-caret-down-fill ms-1"></i>';
+    }
+    $next_order = ($current_sort === $column && $current_order === 'asc') ? 'desc' : 'asc';
+    $class = "text-decoration-none text-dark d-flex align-items-center " . $extra_class;
+    return "<a href=\"?sort={$column}&order={$next_order}\" class=\"{$class}\">{$label}{$icon}</a>";
+}
 
 include_once 'includes/header.php';
 ?>
@@ -64,14 +92,14 @@ include_once 'includes/header.php';
             <table class="table table-custom table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3">เลขที่เอกสาร</th>
-                        <th>ประเภท</th>
-                        <th>วันที่</th>
-                        <th>ออกในนามบริษัท</th>
-                        <th>ลูกค้า</th>
-                        <th class="text-end">ยอดรวม (บาท)</th>
-                        <th class="text-center">VAT</th>
-                        <th class="text-center pe-3">จัดการ</th>
+                        <th class="ps-3"><?= sortLinkDoc('doc_no', 'เลขที่เอกสาร', $sort, $order) ?></th>
+                        <th><?= sortLinkDoc('type', 'ประเภท', $sort, $order) ?></th>
+                        <th><?= sortLinkDoc('date', 'วันที่', $sort, $order) ?></th>
+                        <th><?= sortLinkDoc('company_name', 'ออกในนามบริษัท', $sort, $order) ?></th>
+                        <th><?= sortLinkDoc('customer_name', 'ลูกค้า', $sort, $order) ?></th>
+                        <th class="text-end"><?= sortLinkDoc('total_amount', 'ยอดรวม (บาท)', $sort, $order, 'justify-content-end') ?></th>
+                        <th class="text-center" width="80">VAT</th>
+                        <th class="text-center pe-3" width="100">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
