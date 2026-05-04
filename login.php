@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            background: linear-gradient(135deg, #1a0000, #3d0000, #1a0a0a);
             font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             overflow: hidden;
         }
@@ -69,12 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body::before {
             width: 400px; height: 400px;
-            background: radial-gradient(circle, #7b4fff, transparent);
+            background: radial-gradient(circle, #c0392b, transparent);
             top: -100px; left: -100px;
         }
         body::after {
             width: 350px; height: 350px;
-            background: radial-gradient(circle, #00d4ff, transparent);
+            background: radial-gradient(circle, #e74c3c, transparent);
             bottom: -100px; right: -100px;
             animation-delay: -4s;
         }
@@ -150,8 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .form-control:focus {
             background: rgba(255,255,255,0.12);
-            border-color: rgba(123,79,255,0.7);
-            box-shadow: 0 0 0 3px rgba(123,79,255,0.2);
+            border-color: rgba(231,76,60,0.8);
+            box-shadow: 0 0 0 3px rgba(231,76,60,0.25);
             color: #fff;
             outline: none;
         }
@@ -172,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 13px;
             border: none;
             border-radius: 10px;
-            background: linear-gradient(135deg, #7b4fff, #00d4ff);
+            background: linear-gradient(135deg, #c0392b, #e74c3c);
             color: #fff;
             font-size: 1rem;
             font-weight: 600;
@@ -183,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(123,79,255,0.5);
+            box-shadow: 0 8px 25px rgba(192,57,43,0.6);
         }
         .btn-login:active { transform: translateY(0); }
 
@@ -205,9 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
         icon: 'error',
         title: 'เข้าสู่ระบบไม่สำเร็จ',
         text: <?= json_encode($error) ?>,
-        background: '#1a1a2e',
+        background: '#1a0000',
         color: '#fff',
-        confirmButtonColor: '#7b4fff'
+        confirmButtonColor: '#c0392b'
     });
 });
 </script>
@@ -225,20 +225,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <form method="POST" action="login.php">
         <div class="mb-3">
-            <label class="form-label"><i class="bi bi-person me-1"></i>ชื่อผู้ใช้งาน</label>
+            <label class="form-label"><i class="bi bi-person me-1"></i>ชื่อผู้ใช้งาน <span style="opacity:.55;font-size:.8em;">/ Username</span></label>
             <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
                 <input type="text" class="form-control" name="username" id="username"
-                       placeholder="กรอกชื่อผู้ใช้งาน" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+                       placeholder="Username" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
                        autocomplete="username" required autofocus>
             </div>
         </div>
         <div class="mb-4">
-            <label class="form-label"><i class="bi bi-lock me-1"></i>รหัสผ่าน</label>
+            <label class="form-label"><i class="bi bi-lock me-1"></i>รหัสผ่าน <span style="opacity:.55;font-size:.8em;">/ Password</span></label>
             <div class="input-group">
                 <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                 <input type="password" class="form-control" name="password" id="password"
-                       placeholder="กรอกรหัสผ่าน" autocomplete="current-password" required>
+                       placeholder="Password" autocomplete="current-password" required>
             </div>
         </div>
         <button type="submit" class="btn-login">
