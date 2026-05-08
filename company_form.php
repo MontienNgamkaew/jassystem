@@ -9,7 +9,9 @@ $company = [
     'phone' => '',
     'email' => '',
     'tax_id' => '',
-    'warranty_terms' => '',
+    'warranty_terms'         => '',
+    'warranty_terms_invoice'  => '',
+    'warranty_terms_receipt'  => '',
     'payment_terms' => '',
     'logo_path' => '',
     'stamp_enabled' => 0,
@@ -36,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $company['phone']    = $_POST['phone'] ?? '';
     $company['email']    = $_POST['email'] ?? '';
     $company['tax_id']   = $_POST['tax_id'] ?? '';
-    $company['warranty_terms']   = $_POST['warranty_terms'] ?? '';
+    $company['warranty_terms']          = $_POST['warranty_terms'] ?? '';
+    $company['warranty_terms_invoice']   = $_POST['warranty_terms_invoice'] ?? '';
+    $company['warranty_terms_receipt']   = $_POST['warranty_terms_receipt'] ?? '';
     $company['payment_terms']    = $_POST['payment_terms'] ?? '';
     $company['stamp_enabled']    = isset($_POST['stamp_enabled']) ? 1 : 0;
     $company['show_date_in_signature'] = isset($_POST['show_date_in_signature']) ? 1 : 0;
@@ -71,11 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare("UPDATE companies SET 
                 name_th=?, name_en=?, address=?, phone=?, email=?, tax_id=?, 
-                warranty_terms=?, payment_terms=?, logo_path=?, stamp_enabled=?, stamp_path=?, show_date_in_signature=? 
+                warranty_terms=?, warranty_terms_invoice=?, warranty_terms_receipt=?,
+                payment_terms=?, logo_path=?, stamp_enabled=?, stamp_path=?, show_date_in_signature=? 
                 WHERE id=?");
             $stmt->execute([
                 $company['name_th'], $company['name_en'], $company['address'], $company['phone'], $company['email'], $company['tax_id'],
-                $company['warranty_terms'], $company['payment_terms'], $company['logo_path'], $company['stamp_enabled'], $company['stamp_path'], $company['show_date_in_signature'],
+                $company['warranty_terms'], $company['warranty_terms_invoice'], $company['warranty_terms_receipt'],
+                $company['payment_terms'], $company['logo_path'], $company['stamp_enabled'], $company['stamp_path'], $company['show_date_in_signature'],
                 $id
             ]);
         } else {
@@ -85,11 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $pdo->prepare("INSERT INTO companies (
                 name_th, name_en, address, phone, email, tax_id, 
-                warranty_terms, payment_terms, logo_path, stamp_enabled, stamp_path, show_date_in_signature, is_default
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                warranty_terms, warranty_terms_invoice, warranty_terms_receipt,
+                payment_terms, logo_path, stamp_enabled, stamp_path, show_date_in_signature, is_default
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $company['name_th'], $company['name_en'], $company['address'], $company['phone'], $company['email'], $company['tax_id'],
-                $company['warranty_terms'], $company['payment_terms'], $company['logo_path'], $company['stamp_enabled'], $company['stamp_path'], $company['show_date_in_signature'], $is_default
+                $company['warranty_terms'], $company['warranty_terms_invoice'], $company['warranty_terms_receipt'],
+                $company['payment_terms'], $company['logo_path'], $company['stamp_enabled'], $company['stamp_path'], $company['show_date_in_signature'], $is_default
             ]);
         }
         header("Location: companies.php?msg=saved");
@@ -150,8 +158,16 @@ include_once 'includes/header.php';
                         <input type="text" class="form-control" name="payment_terms" value="<?= htmlspecialchars($company['payment_terms']) ?>" placeholder="เช่น ภายใน 30 วัน">
                     </div>
                     <div class="col-12">
-                        <label class="form-label fw-bold">เงื่อนไขการรับประกัน / หมายเหตุท้ายเอกสาร</label>
-                        <textarea class="form-control" name="warranty_terms" rows="3"><?= htmlspecialchars($company['warranty_terms']) ?></textarea>
+                        <label class="form-label fw-bold"><i class="bi bi-sticky me-1 text-success"></i> หมายเหตุ – ใบเสนอราคา (Quotation)</label>
+                        <textarea class="form-control" name="warranty_terms" rows="3" placeholder="เงื่อนไขและหมายเหตุที่ต้องการแสดงในใบเสนอราคา"><?= htmlspecialchars($company['warranty_terms']) ?></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold"><i class="bi bi-sticky me-1 text-warning"></i> หมายเหตุ – ใบส่งของ/ใบแจ้งหนี้ (Invoice)</label>
+                        <textarea class="form-control" name="warranty_terms_invoice" rows="3" placeholder="เงื่อนไขและหมายเหตุที่ต้องการแสดงในใบส่งของ/ใบแจ้งหนี้"><?= htmlspecialchars($company['warranty_terms_invoice'] ?? '') ?></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold"><i class="bi bi-sticky me-1 text-info"></i> หมายเหตุ – ใบเสร็จรับเงิน (Receipt)</label>
+                        <textarea class="form-control" name="warranty_terms_receipt" rows="3" placeholder="เงื่อนไขและหมายเหตุที่ต้องการแสดงในใบเสร็จรับเงิน"><?= htmlspecialchars($company['warranty_terms_receipt'] ?? '') ?></textarea>
                     </div>
                 </div>
             </div>
