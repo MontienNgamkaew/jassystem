@@ -131,6 +131,8 @@ function swalInfo(msg) {
                 'customers.php'       => '<i class="bi bi-people me-2"></i>จัดการลูกค้า',
                 'create_document.php' => '<i class="bi bi-file-earmark-plus me-2"></i>ออกเอกสารใหม่',
                 'documents.php'       => '<i class="bi bi-archive me-2"></i>ประวัติเอกสาร',
+                'edit_document.php'   => '<i class="bi bi-pencil-square me-2"></i>แก้ไขเอกสาร',
+                'view_document.php'   => '<i class="bi bi-file-earmark-text me-2"></i>รายละเอียดเอกสาร',
                 'companies.php'       => '<i class="bi bi-buildings me-2"></i>จัดการข้อมูลบริษัท',
                 'company_form.php'    => '<i class="bi bi-buildings me-2"></i>แก้ไขข้อมูลบริษัท',
                 'users.php'           => '<i class="bi bi-people-fill me-2"></i>จัดการผู้ใช้งาน',

@@ -1,166 +1,74 @@
 <?php
 require_once 'db.php';
 
-// Fetch initial data
+$id = intval($_GET['id'] ?? 0);
+if (!$id) { header('Location: documents.php'); exit; }
+
+// Load document
+$stmt = $pdo->prepare("SELECT * FROM documents WHERE id = ?");
+$stmt->execute([$id]);
+$doc = $stmt->fetch();
+if (!$doc) { header('Location: documents.php'); exit; }
+
+// Load items
+$stmt = $pdo->prepare("SELECT * FROM document_items WHERE document_id = ? ORDER BY id ASC");
+$stmt->execute([$id]);
+$doc_items = $stmt->fetchAll();
+
+// Load supporting data
 $customers = $pdo->query("SELECT * FROM customers ORDER BY name ASC")->fetchAll();
-$packages = $pdo->query("SELECT * FROM packages ORDER BY name ASC")->fetchAll();
+$packages  = $pdo->query("SELECT * FROM packages ORDER BY name ASC")->fetchAll();
 $companies = $pdo->query("SELECT id, name_th, is_default FROM companies ORDER BY is_default DESC, name_th ASC")->fetchAll();
 
-// Handle convert_from pre-fill (GET only)
-$convert_source = null;
-$prefill_items_json = '[]';
-$prefill_type = 'Quote';
-$prefill_customer_id = 0;
-$prefill_company_id = 0;
-$prefill_include_vat = false;
-$converted_from_id = 0;
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['convert_from']) && is_numeric($_GET['convert_from'])) {
-    $cfid = (int)$_GET['convert_from'];
-    $stmt = $pdo->prepare("SELECT * FROM documents WHERE id = ?");
-    $stmt->execute([$cfid]);
-    $convert_source = $stmt->fetch();
-
-    if ($convert_source) {
-        $converted_from_id = $cfid;
-        $prefill_customer_id = $convert_source['customer_id'];
-        $prefill_company_id  = $convert_source['company_id'];
-        $prefill_include_vat = (bool)$convert_source['include_vat'];
-        $prefill_type = $convert_source['type'] === 'Quote' ? 'Invoice' : 'Receipt';
-
-        $stmt = $pdo->prepare("SELECT * FROM document_items WHERE document_id = ? ORDER BY id ASC");
-        $stmt->execute([$cfid]);
-        $prefill_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $prefill_items_json = json_encode(array_map(fn($it) => [
-            'name'  => $it['item_name'],
-            'unit'  => $it['unit'] ?? '',
-            'qty'   => $it['quantity'],
-            'price' => $it['price'],
-        ], $prefill_items));
+// Handle form submit
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update') {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
     }
-}
 
-// Handle Form Submit (Save Document)
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'save') {
-    $type = $_POST['type'] ?? 'Quote';
-    $date = $_POST['date'] ?? date('Y-m-d');
-    if (empty($date)) $date = date('Y-m-d');
-    
-    $customer_id = $_POST['customer_id'] ?? 0;
-    $company_id = $_POST['company_id'] ?? 0;
-    
-    $items_code = $_POST['item_code'] ?? [];
-    $items_raw_name = $_POST['item_raw_name'] ?? [];
-    $items_unit = $_POST['item_unit'] ?? [];
-    
-    $items_name = $_POST['item_name'] ?? [];
-    $items_qty = $_POST['item_qty'] ?? [];
-    $items_price = $_POST['item_price'] ?? [];
-    $items_total = $_POST['item_total'] ?? [];
-    $subtotal = floatval($_POST['subtotal'] ?? 0);
-    $vat_amount = floatval($_POST['vat_amount'] ?? 0);
-    $show_date = isset($_POST['show_date']) ? 1 : 0;
+    $date        = $_POST['date']        ?? $doc['date'];
+    $customer_id = intval($_POST['customer_id'] ?? $doc['customer_id']);
+    $company_id  = intval($_POST['company_id']  ?? $doc['company_id']);
+    $items_name  = $_POST['item_name']   ?? [];
+    $items_unit  = $_POST['item_unit']   ?? [];
+    $items_qty   = $_POST['item_qty']    ?? [];
+    $items_price = $_POST['item_price']  ?? [];
+    $items_total = $_POST['item_total']  ?? [];
     $grand_total = floatval($_POST['grand_total'] ?? 0);
     $include_vat = isset($_POST['include_vat']) ? 1 : 0;
-    
-    $save_as_package = isset($_POST['save_as_package']) ? true : false;
-    $update_master_price = isset($_POST['update_master_price']) ? true : false;
-    $new_pkg_code = $_POST['new_pkg_code'] ?? '';
-    $new_pkg_name = $_POST['new_pkg_name'] ?? '';
-    $new_pkg_desc = $_POST['new_pkg_desc'] ?? '';
-    $converted_from_id = intval($_POST['converted_from_id'] ?? 0);
-
-    $prefix = match($type) { 'Invoice' => 'INV', 'Receipt' => 'RE', default => 'QT' };
-    $ym = date('Ym', strtotime($date));
+    $show_date   = isset($_POST['show_date'])   ? 1 : 0;
 
     try {
         $pdo->beginTransaction();
 
-        // Generate doc number inside transaction to prevent race condition
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM documents WHERE type = ? AND DATE_FORMAT(date, '%Y%m') = ? FOR UPDATE");
-        $stmt->execute([$type, $ym]);
-        $count = $stmt->fetchColumn() + 1;
-        $doc_no = sprintf("%s-%s-%04d", $prefix, $ym, $count);
-        
-        // 1. Process Products (Auto-create if not exists)
-        $product_ids = []; // Store mapped product IDs for the package creation
-        for ($i = 0; $i < count($items_code); $i++) {
-            $code = $items_code[$i];
-            $rname = $items_raw_name[$i];
-            $runit = $items_unit[$i];
-            $rprice = $items_price[$i];
-            
-            $prod_id = null;
-            if (!empty($code)) {
-                $stmt = $pdo->prepare("SELECT id FROM products WHERE code = ?");
-                $stmt->execute([$code]);
-                $prod = $stmt->fetch();
-                if ($prod) {
-                    $prod_id = $prod['id'];
-                    // Update master price if requested
-                    if ($update_master_price) {
-                        $updateStmt = $pdo->prepare("UPDATE products SET unit_price = ? WHERE id = ?");
-                        $updateStmt->execute([$rprice, $prod_id]);
-                    }
-                } else {
-                    // Create new product
-                    $stmt = $pdo->prepare("INSERT INTO products (code, name, unit, unit_price) VALUES (?, ?, ?, ?)");
-                    $stmt->execute([$code, $rname, $runit, $rprice]);
-                    $prod_id = $pdo->lastInsertId();
-                }
-            }
-            $product_ids[$i] = $prod_id;
-        }
-        
-        // 2. Process "Save as Package"
-        if ($save_as_package && !empty($new_pkg_code) && !empty($new_pkg_name)) {
-            // Insert Package
-            $stmt = $pdo->prepare("INSERT INTO packages (code, name, description) VALUES (?, ?, ?)");
-            $stmt->execute([$new_pkg_code, $new_pkg_name, $new_pkg_desc]);
-            $package_id = $pdo->lastInsertId();
-            
-            // Insert Package Items
-            $stmt = $pdo->prepare("INSERT INTO package_items (package_id, product_id, quantity) VALUES (?, ?, ?)");
-            for ($i = 0; $i < count($product_ids); $i++) {
-                if ($product_ids[$i] !== null && $items_qty[$i] > 0) {
-                    // Avoid duplicates in package
-                    $checkStmt = $pdo->prepare("SELECT id FROM package_items WHERE package_id = ? AND product_id = ?");
-                    $checkStmt->execute([$package_id, $product_ids[$i]]);
-                    if (!$checkStmt->fetch()) {
-                        $stmt->execute([$package_id, $product_ids[$i], $items_qty[$i]]);
-                    }
-                }
-            }
-        }
-        
-        // 3. Insert Document
-        $stmt = $pdo->prepare("INSERT INTO documents (doc_no, type, date, customer_id, converted_from_id, company_id, total_amount, include_vat, show_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$doc_no, $type, $date, $customer_id, $converted_from_id ?: null, $company_id, $grand_total, $include_vat, $show_date]);
-        $document_id = $pdo->lastInsertId();
-        
-        // 4. Insert Document Items
+        $stmt = $pdo->prepare("UPDATE documents SET date=?, customer_id=?, company_id=?, total_amount=?, include_vat=?, show_date=? WHERE id=?");
+        $stmt->execute([$date, $customer_id, $company_id, $grand_total, $include_vat, $show_date, $id]);
+
+        $pdo->prepare("DELETE FROM document_items WHERE document_id = ?")->execute([$id]);
+
         $stmt = $pdo->prepare("INSERT INTO document_items (document_id, item_name, quantity, unit, price, total) VALUES (?, ?, ?, ?, ?, ?)");
         for ($i = 0; $i < count($items_name); $i++) {
-            if (!empty($items_name[$i]) && $items_qty[$i] > 0) {
-                $stmt->execute([
-                    $document_id,
-                    $items_name[$i],
-                    $items_qty[$i],
-                    $items_unit[$i] ?? '',
-                    $items_price[$i],
-                    $items_total[$i]
-                ]);
+            if (!empty($items_name[$i]) && floatval($items_qty[$i]) > 0) {
+                $stmt->execute([$id, $items_name[$i], $items_qty[$i], $items_unit[$i] ?? '', $items_price[$i], $items_total[$i]]);
             }
         }
-        
+
         $pdo->commit();
-        header("Location: documents.php?msg=created");
-        exit();
+        header("Location: view_document.php?id={$id}&msg=updated");
+        exit;
     } catch (\PDOException $e) {
         $pdo->rollBack();
         $error = "เกิดข้อผิดพลาดในการบันทึก: " . $e->getMessage();
     }
 }
+
+$type_labels = ['Quote' => 'ใบเสนอราคา', 'Invoice' => 'ใบแจ้งหนี้', 'Receipt' => 'ใบเสร็จรับเงิน'];
+$prefill_items_json = json_encode(array_map(fn($it) => [
+    'name'  => $it['item_name'],
+    'unit'  => $it['unit'] ?? '',
+    'qty'   => $it['quantity'],
+    'price' => $it['price'],
+], $doc_items));
 
 include_once 'includes/header.php';
 ?>
@@ -172,32 +80,30 @@ include_once 'includes/header.php';
 </style>
 
 <div class="page-header">
-    <h2 class="page-title"><i class="bi bi-file-earmark-plus"></i> ออกเอกสารใหม่</h2>
+    <h2 class="page-title"><i class="bi bi-pencil-square"></i> แก้ไขเอกสาร</h2>
 </div>
 
 <?php if (isset($error)): ?>
 <script>document.addEventListener('DOMContentLoaded',()=>swalError(<?= json_encode($error) ?>));</script>
 <?php endif; ?>
 
-<form method="POST" id="documentForm">
-    <input type="hidden" name="action" value="save">
+<div class="alert alert-warning mb-3">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    กำลังแก้ไขเอกสาร <strong><?= htmlspecialchars($doc['doc_no']) ?></strong>
+    (<?= htmlspecialchars($type_labels[$doc['type']] ?? $doc['type']) ?>)
+    — เลขที่เอกสารจะคงเดิม
+</div>
+
+<form method="POST" id="editForm">
+    <input type="hidden" name="action" value="update">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <input type="hidden" name="subtotal" id="inputSubtotal" value="0">
     <input type="hidden" name="vat_amount" id="inputVatAmount" value="0">
     <input type="hidden" name="grand_total" id="inputGrandTotal" value="0">
-    <input type="hidden" name="converted_from_id" value="<?= $converted_from_id ?>">
 
-<?php if ($convert_source): ?>
-<div class="alert alert-info mb-3">
-    <i class="bi bi-arrow-left-right me-2"></i>
-    กำลังแปลงจากเอกสาร <strong><?= htmlspecialchars($convert_source['doc_no']) ?></strong>
-    เป็น <strong><?= $prefill_type === 'Invoice' ? 'ใบแจ้งหนี้' : 'ใบเสร็จรับเงิน' ?></strong>
-</div>
-<?php endif; ?>
-    
-    <!-- STEP 1: Edit Mode -->
+    <!-- STEP 1: Edit -->
     <div id="step-edit" class="step-section active">
         <div class="row">
-            <!-- Document Info -->
             <div class="col-md-12 mb-4">
                 <div class="card card-custom">
                     <div class="card-header card-header-custom">ข้อมูลเอกสาร</div>
@@ -205,21 +111,14 @@ include_once 'includes/header.php';
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label class="form-label small mb-1">ประเภทเอกสาร</label>
-                                <select class="form-select form-select-sm" name="type" id="docType" required <?= $convert_source ? 'disabled' : '' ?>>
-                                    <option value="Quote" <?= $prefill_type === 'Quote' ? 'selected' : '' ?>>ใบเสนอราคา</option>
-                                    <option value="Invoice" <?= $prefill_type === 'Invoice' ? 'selected' : '' ?>>ใบแจ้งหนี้</option>
-                                    <option value="Receipt" <?= $prefill_type === 'Receipt' ? 'selected' : '' ?>>ใบเสร็จรับเงิน</option>
-                                </select>
-                                <?php if ($convert_source): ?>
-                                <input type="hidden" name="type" value="<?= htmlspecialchars($prefill_type) ?>">
-                                <?php endif; ?>
+                                <input type="text" class="form-control form-control-sm bg-light" value="<?= htmlspecialchars($type_labels[$doc['type']] ?? $doc['type']) ?>" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label small mb-1">ออกในนามบริษัท <span class="text-danger">*</span></label>
                                 <select name="company_id" class="form-select form-select-sm" required>
                                     <?php foreach ($companies as $comp): ?>
-                                        <option value="<?= $comp['id'] ?>" <?= ($prefill_company_id ? $comp['id'] == $prefill_company_id : $comp['is_default']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($comp['name_th']) ?> <?= $comp['is_default'] ? '(เริ่มต้น)' : '' ?>
+                                        <option value="<?= $comp['id'] ?>" <?= $comp['id'] == $doc['company_id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($comp['name_th']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -227,10 +126,10 @@ include_once 'includes/header.php';
                             <div class="col-md-3 mb-3">
                                 <label class="form-label small mb-1">วันที่</label>
                                 <div class="input-group input-group-sm">
-                                    <input type="date" class="form-control" name="date" id="docDate" value="<?= date('Y-m-d') ?>" required>
+                                    <input type="date" class="form-control" name="date" id="docDate" value="<?= htmlspecialchars($doc['date']) ?>" required>
                                 </div>
                                 <div class="form-check mt-1">
-                                    <input class="form-check-input" type="checkbox" id="noDate" name="show_date" value="1" checked onchange="toggleDateInput()">
+                                    <input class="form-check-input" type="checkbox" id="noDate" name="show_date" value="1" <?= $doc['show_date'] ? 'checked' : '' ?>>
                                     <label class="form-check-label text-muted small" for="noDate">แสดงวันที่ในเอกสาร</label>
                                 </div>
                             </div>
@@ -240,7 +139,7 @@ include_once 'includes/header.php';
                                     <option value="">-- เลือกลูกค้า --</option>
                                     <?php foreach ($customers as $c): ?>
                                         <option value="<?= $c['id'] ?>"
-                                            <?= $prefill_customer_id == $c['id'] ? 'selected' : '' ?>
+                                            <?= $c['id'] == $doc['customer_id'] ? 'selected' : '' ?>
                                             data-name="<?= htmlspecialchars($c['name']) ?>"
                                             data-phone="<?= htmlspecialchars($c['phone'] ?? '-') ?>"
                                             data-address="<?= htmlspecialchars($c['address']) ?>">
@@ -254,22 +153,20 @@ include_once 'includes/header.php';
                 </div>
             </div>
 
-            <!-- Select Package & Items -->
             <div class="col-md-12 mb-4">
                 <div class="card card-custom">
                     <div class="card-header card-header-custom d-flex justify-content-between align-items-center">
                         <span>รายการสินค้า</span>
                         <div class="d-flex gap-2">
-                            <a href="assets/samples/sample_document_items.csv" class="btn btn-sm btn-outline-secondary" download title="ดาวน์โหลดไฟล์ตัวอย่าง CSV">
+                            <a href="assets/samples/sample_document_items.csv" class="btn btn-sm btn-outline-secondary" download>
                                 <i class="bi bi-download"></i> โหลดตัวอย่าง CSV
                             </a>
                             <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="uploadCsvToDoc()">
                             <button type="button" class="btn btn-sm btn-success" onclick="document.getElementById('csvFileInput').click()">
                                 <i class="bi bi-file-earmark-arrow-up"></i> Import CSV
                             </button>
-                            
                             <select class="form-select form-select-sm" style="width: 250px;" id="packageSelect" onchange="loadPackageItems()">
-                                <option value="">-- ดึงสินค้าจากแพ็กเกจ --</option>
+                                <option value="">-- เพิ่มสินค้าจากแพ็กเกจ --</option>
                                 <?php foreach ($packages as $p): ?>
                                     <option value="<?= $p['id'] ?>">แพ็กเกจ: <?= htmlspecialchars($p['name']) ?></option>
                                 <?php endforeach; ?>
@@ -289,9 +186,8 @@ include_once 'includes/header.php';
                                     </tr>
                                 </thead>
                                 <tbody id="itemsTableBody">
-                                    <!-- Items will be loaded here via JS -->
-                                    <tr id="emptyRow">
-                                        <td colspan="5" class="text-center py-4 text-muted">กรุณาเลือกแพ็กเกจด้านบนเพื่อดึงข้อมูลสินค้า</td>
+                                    <tr id="emptyRow" style="display:none;">
+                                        <td colspan="5" class="text-center py-4 text-muted">กรุณาเพิ่มรายการสินค้า</td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
@@ -318,35 +214,16 @@ include_once 'includes/header.php';
                         <div class="row align-items-center">
                             <div class="col-md-8">
                                 <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" id="includeVat" name="include_vat" onchange="calcGrandTotal()">
+                                    <input class="form-check-input" type="checkbox" id="includeVat" name="include_vat" <?= $doc['include_vat'] ? 'checked' : '' ?> onchange="calcGrandTotal()">
                                     <label class="form-check-label fw-bold text-success" for="includeVat">รวม VAT 7% (ภาษีมูลค่าเพิ่ม)</label>
-                                </div>
-                                <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" id="updateMasterPrice" name="update_master_price">
-                                    <label class="form-check-label fw-bold text-danger" for="updateMasterPrice">อัปเดต "ราคาสินค้า" ในบิลนี้ กลับไปทับราคาในฐานข้อมูลหลักด้วย</label>
-                                </div>
-                                <div class="form-check form-switch mb-2">
-                                    <input class="form-check-input" type="checkbox" id="saveAsPackage" name="save_as_package" onchange="togglePackageForm()">
-                                    <label class="form-check-label fw-bold" for="saveAsPackage">บันทึกรายการเหล่านี้เป็น "แพ็กเกจใหม่" สำหรับใช้ในอนาคต</label>
-                                </div>
-                                <div id="newPackageForm" style="display: none;" class="p-3 bg-light border rounded">
-                                    <div class="row">
-                                        <div class="col-md-4 mb-2">
-                                            <input type="text" class="form-control form-control-sm" name="new_pkg_code" id="newPkgCode" placeholder="รหัสแพ็กเกจใหม่">
-                                        </div>
-                                        <div class="col-md-8 mb-2">
-                                            <input type="text" class="form-control form-control-sm" name="new_pkg_name" id="newPkgName" placeholder="ชื่อแพ็กเกจใหม่">
-                                        </div>
-                                        <div class="col-md-12">
-                                            <input type="text" class="form-control form-control-sm" name="new_pkg_desc" placeholder="รายละเอียด (ไม่บังคับ)">
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">* หากมีสินค้ารหัสใหม่ในตาราง ระบบจะสร้างสินค้าใหม่ลงคลังให้อัตโนมัติด้วย</small>
                                 </div>
                             </div>
                             <div class="col-md-4 text-end">
+                                <a href="view_document.php?id=<?= $id ?>" class="btn btn-secondary mt-2 me-2">
+                                    <i class="bi bi-x-circle"></i> ยกเลิก
+                                </a>
                                 <button type="button" class="btn btn-warning mt-2" onclick="previewDocument()">
-                                    <i class="bi bi-eye"></i> ตรวจสอบเอกสารก่อนบันทึก
+                                    <i class="bi bi-eye"></i> ตรวจสอบก่อนบันทึก
                                 </button>
                             </div>
                         </div>
@@ -356,17 +233,15 @@ include_once 'includes/header.php';
         </div>
     </div>
 
-    <!-- STEP 2: Preview Mode -->
+    <!-- STEP 2: Preview -->
     <div id="step-preview" class="step-section">
         <div class="card card-custom mb-4">
             <div class="card-body p-5">
-                <div class="text-center mb-5 border-bottom pb-4">
-                    <img src="assets/img/logo.png" alt="Logo" style="height: 60px; margin-bottom: 15px;">
-                    <h2 class="fw-bold" style="color: var(--primary-color);">ระบบจัดการเอกสาร Jasmine Active System</h2>
-                    <h3 class="fw-bold mt-3" id="previewDocTitle">ใบเสนอราคา</h3>
+                <div class="text-center mb-4">
+                    <h3 class="fw-bold" id="previewDocTitle">-</h3>
+                    <p class="text-muted">ตรวจสอบข้อมูลก่อนบันทึก</p>
                 </div>
-                
-                <div class="row mb-5">
+                <div class="row mb-4">
                     <div class="col-sm-6">
                         <h5 class="text-muted mb-2">ข้อมูลลูกค้า:</h5>
                         <div class="fw-bold fs-5 mb-1" id="previewCustName">-</div>
@@ -375,10 +250,10 @@ include_once 'includes/header.php';
                     </div>
                     <div class="col-sm-6 text-end">
                         <h5 class="text-muted mb-2">ข้อมูลเอกสาร:</h5>
+                        <div><strong>เลขที่:</strong> <?= htmlspecialchars($doc['doc_no']) ?></div>
                         <div><strong>วันที่:</strong> <span id="previewDate">-</span></div>
                     </div>
                 </div>
-                
                 <table class="table table-bordered review-table">
                     <thead class="table-light">
                         <tr>
@@ -389,9 +264,7 @@ include_once 'includes/header.php';
                             <th width="15%" class="text-end">จำนวนเงิน</th>
                         </tr>
                     </thead>
-                    <tbody id="previewTableBody">
-                        <!-- Preview rows injected via JS -->
-                    </tbody>
+                    <tbody id="previewTableBody"></tbody>
                     <tfoot>
                         <tr>
                             <th colspan="4" class="text-end">รวมเงิน</th>
@@ -413,7 +286,7 @@ include_once 'includes/header.php';
                     <i class="bi bi-pencil"></i> กลับไปแก้ไข
                 </button>
                 <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="bi bi-check-circle"></i> ยืนยันและบันทึกเอกสาร
+                    <i class="bi bi-check-circle"></i> ยืนยันและบันทึกการแก้ไข
                 </button>
             </div>
         </div>
@@ -421,33 +294,23 @@ include_once 'includes/header.php';
 </form>
 
 <script>
-// Format Number
 function formatNumber(num) {
     return Number(num).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 
-// Global state
-let itemIndex = 0;
-
 async function loadPackageItems() {
     const packageId = document.getElementById('packageSelect').value;
     if (!packageId) return;
-    
     try {
         const response = await fetch(`ajax_get_package_items.php?package_id=${packageId}`);
         const data = await response.json();
-        
         if (data.success) {
-            document.getElementById('emptyRow')?.remove();
-            data.items.forEach(item => {
-                appendRowToTable(item.code, item.name, item.unit, item.quantity, item.unit_price);
-            });
+            data.items.forEach(item => appendRowToTable(item.code, item.name, item.unit, item.quantity, item.unit_price));
             calcGrandTotal();
         } else {
             swalError(data.message);
         }
     } catch (err) {
-        console.error(err);
         swalError('เกิดข้อผิดพลาดในการดึงข้อมูลแพ็กเกจ');
     }
 }
@@ -455,33 +318,21 @@ async function loadPackageItems() {
 async function uploadCsvToDoc() {
     const fileInput = document.getElementById('csvFileInput');
     if (fileInput.files.length === 0) return;
-    
     const formData = new FormData();
     formData.append('csv_file', fileInput.files[0]);
-    
     try {
-        const response = await fetch('ajax_import_csv_to_doc.php', {
-            method: 'POST',
-            body: formData
-        });
+        const response = await fetch('ajax_import_csv_to_doc.php', { method: 'POST', body: formData });
         const data = await response.json();
-        
         if (data.success) {
-            document.getElementById('emptyRow')?.remove();
-            data.items.forEach(item => {
-                appendRowToTable(item.code, item.name, item.unit, item.quantity, item.unit_price);
-            });
+            data.items.forEach(item => appendRowToTable(item.code, item.name, item.unit, item.quantity, item.unit_price));
             calcGrandTotal();
             swalSuccess('นำเข้าข้อมูลสำเร็จ ' + data.items.length + ' รายการ');
         } else {
             swalError(data.message);
         }
     } catch (err) {
-        console.error(err);
         swalError('เกิดข้อผิดพลาดในการอัปโหลดไฟล์');
     }
-    
-    // Reset file input
     fileInput.value = '';
 }
 
@@ -521,7 +372,6 @@ function calcRow(el) {
     const qty = parseFloat(tr.querySelector('.item-qty').value) || 0;
     const price = parseFloat(tr.querySelector('.item-price').value) || 0;
     const total = qty * price;
-    
     tr.querySelector('.item-total-val').value = total.toFixed(2);
     tr.querySelector('.item-total-disp').innerText = formatNumber(total);
     calcGrandTotal();
@@ -537,7 +387,6 @@ function calcGrandTotal() {
     document.querySelectorAll('.item-total-val').forEach(input => {
         subtotal += parseFloat(input.value) || 0;
     });
-    
     const includeVat = document.getElementById('includeVat').checked;
     const vatAmount = includeVat ? subtotal * 0.07 : 0;
     const grandTotal = subtotal + vatAmount;
@@ -545,57 +394,36 @@ function calcGrandTotal() {
     document.getElementById('inputSubtotal').value = subtotal.toFixed(2);
     document.getElementById('inputVatAmount').value = vatAmount.toFixed(2);
     document.getElementById('inputGrandTotal').value = grandTotal.toFixed(2);
-
     document.getElementById('displaySubtotal').innerText = formatNumber(subtotal);
     document.getElementById('displayVatAmount').innerText = formatNumber(vatAmount);
     document.getElementById('displayGrandTotal').innerText = formatNumber(grandTotal);
     document.getElementById('vatRow').style.display = includeVat ? '' : 'none';
 }
 
-// Workflow Logic
 function previewDocument() {
-    // Basic validation
     const custId = document.getElementById('docCustomer').value;
-    if (!custId) {
-        swalWarning('กรุณาเลือกลูกค้าก่อนดำเนินการต่อ');
-        return;
-    }
-    if (document.querySelectorAll('.item-qty').length === 0) {
-        swalWarning('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ หรือเลือกแพ็กเกจด้านบน');
-        return;
-    }
-    if (document.getElementById('saveAsPackage').checked) {
-        if (!document.getElementById('newPkgCode').value || !document.getElementById('newPkgName').value) {
-            swalWarning('กรุณากรอกรหัสและชื่อแพ็กเกจใหม่ให้ครบถ้วน');
-            return;
-        }
-    }
+    if (!custId) { swalWarning('กรุณาเลือกลูกค้าก่อนดำเนินการต่อ'); return; }
+    if (document.querySelectorAll('.item-qty').length === 0) { swalWarning('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ'); return; }
 
-    // Populate Preview Data
-    const typeSelect = document.getElementById('docType');
-    document.getElementById('previewDocTitle').innerText = typeSelect.options[typeSelect.selectedIndex].text;
-    
+    document.getElementById('previewDocTitle').innerText = '<?= htmlspecialchars($type_labels[$doc['type']] ?? $doc['type']) ?>';
+
     const custSelect = document.getElementById('docCustomer');
     const custOption = custSelect.options[custSelect.selectedIndex];
     document.getElementById('previewCustName').innerText = custOption.getAttribute('data-name');
     document.getElementById('previewCustAddress').innerText = custOption.getAttribute('data-address');
     document.getElementById('previewCustPhone').innerText = "โทร: " + custOption.getAttribute('data-phone');
-    
-    // Format Date from YYYY-MM-DD to DD/MM/YYYY
+
     const dateParts = document.getElementById('docDate').value.split('-');
-    if(dateParts.length === 3) {
+    if (dateParts.length === 3) {
         document.getElementById('previewDate').innerText = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
     }
 
-    // Populate Table
     const tbody = document.getElementById('previewTableBody');
     tbody.innerHTML = '';
-    
-    const names = document.querySelectorAll('input[name="item_name[]"]');
-    const qtys = document.querySelectorAll('input[name="item_qty[]"]');
-    const prices = document.querySelectorAll('input[name="item_price[]"]');
-    const totals = document.querySelectorAll('input[name="item_total[]"]');
-    
+    const names   = document.querySelectorAll('input[name="item_name[]"]');
+    const qtys    = document.querySelectorAll('input[name="item_qty[]"]');
+    const prices  = document.querySelectorAll('input[name="item_price[]"]');
+    const totals  = document.querySelectorAll('input[name="item_total[]"]');
     for (let i = 0; i < names.length; i++) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -607,63 +435,30 @@ function previewDocument() {
         `;
         tbody.appendChild(tr);
     }
-    
+
     const includeVat = document.getElementById('includeVat').checked;
-    document.getElementById('previewSubtotal').innerText = document.getElementById('displaySubtotal').innerText;
-    document.getElementById('previewVatAmount').innerText = document.getElementById('displayVatAmount').innerText;
+    document.getElementById('previewSubtotal').innerText   = document.getElementById('displaySubtotal').innerText;
+    document.getElementById('previewVatAmount').innerText  = document.getElementById('displayVatAmount').innerText;
     document.getElementById('previewGrandTotal').innerText = document.getElementById('displayGrandTotal').innerText;
     document.getElementById('previewVatRow').style.display = includeVat ? '' : 'none';
 
-    // Switch View
     document.getElementById('step-edit').classList.remove('active');
     document.getElementById('step-preview').classList.add('active');
-    window.scrollTo(0,0);
+    window.scrollTo(0, 0);
 }
 
 function backToEdit() {
     document.getElementById('step-preview').classList.remove('active');
     document.getElementById('step-edit').classList.add('active');
-    window.scrollTo(0,0);
+    window.scrollTo(0, 0);
 }
 
-function toggleDateInput() {
-    const show = document.getElementById('noDate').checked;
-    const dateInput = document.getElementById('docDate');
-    
-    // Instead of completely disabling it (which prevents it from being sent to PHP),
-    // we make it readOnly and look disabled.
-    if (!show) {
-        dateInput.readOnly = true;
-        dateInput.style.pointerEvents = 'none';
-        dateInput.style.opacity = '0.5';
-    } else {
-        dateInput.readOnly = false;
-        dateInput.style.pointerEvents = 'auto';
-        dateInput.style.opacity = '1';
-    }
-}
-
-function togglePackageForm() {
-    const isChecked = document.getElementById('saveAsPackage').checked;
-    document.getElementById('newPackageForm').style.display = isChecked ? 'block' : 'none';
-    document.getElementById('newPkgCode').required = isChecked;
-    document.getElementById('newPkgName').required = isChecked;
-}
-
-<?php if ($prefill_items_json !== '[]'): ?>
-// Pre-populate items from convert_from source document
+// Pre-populate existing items
 document.addEventListener('DOMContentLoaded', function() {
     const items = <?= $prefill_items_json ?>;
-    document.getElementById('emptyRow')?.remove();
-    items.forEach(item => {
-        appendRowToTable('', item.name, item.unit, item.qty, item.price);
-    });
-    <?php if ($prefill_include_vat): ?>
-    document.getElementById('includeVat').checked = true;
-    <?php endif; ?>
+    items.forEach(item => appendRowToTable('', item.name, item.unit, item.qty, item.price));
     calcGrandTotal();
 });
-<?php endif; ?>
 </script>
 
 <?php include_once 'includes/footer.php'; ?>

@@ -1,43 +1,45 @@
 <?php
 require_once 'db.php';
 
-// Handle setting default company
-if (isset($_GET['set_default']) && is_numeric($_GET['set_default'])) {
-    $id = $_GET['set_default'];
-    $pdo->exec("UPDATE companies SET is_default = 0");
-    $stmt = $pdo->prepare("UPDATE companies SET is_default = 1 WHERE id = ?");
-    if ($stmt->execute([$id])) {
-        header("Location: companies.php?msg=default_set");
-        exit;
+// Handle POST actions (CSRF protected)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
     }
-}
 
-// Handle delete
-if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    $id = $_GET['delete'];
-    // Check if it's the last company
-    $count = $pdo->query("SELECT COUNT(*) FROM companies")->fetchColumn();
-    if ($count <= 1) {
-        $error = "ไม่สามารถลบบริษัทนี้ได้ ต้องมีบริษัทอย่างน้อย 1 บริษัทในระบบ";
-    } else {
-        // Check if documents use it
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM documents WHERE company_id = ?");
-        $stmt->execute([$id]);
-        if ($stmt->fetchColumn() > 0) {
-            $error = "ไม่สามารถลบบริษัทได้ เนื่องจากมีเอกสารที่อ้างอิงถึงบริษัทนี้";
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'set_default' && !empty($_POST['company_id']) && is_numeric($_POST['company_id'])) {
+        $id = (int)$_POST['company_id'];
+        $pdo->exec("UPDATE companies SET is_default = 0");
+        $stmt = $pdo->prepare("UPDATE companies SET is_default = 1 WHERE id = ?");
+        if ($stmt->execute([$id])) {
+            header("Location: companies.php?msg=default_set");
+            exit;
+        }
+    } elseif ($action === 'delete' && !empty($_POST['delete_id']) && is_numeric($_POST['delete_id'])) {
+        $id = (int)$_POST['delete_id'];
+        $count = $pdo->query("SELECT COUNT(*) FROM companies")->fetchColumn();
+        if ($count <= 1) {
+            $error = "ไม่สามารถลบบริษัทนี้ได้ ต้องมีบริษัทอย่างน้อย 1 บริษัทในระบบ";
         } else {
-            // Check if it's default
-            $stmt = $pdo->prepare("SELECT is_default FROM companies WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM documents WHERE company_id = ?");
             $stmt->execute([$id]);
-            if ($stmt->fetchColumn() == 1) {
-                $error = "ไม่สามารถลบบริษัทที่เป็นค่าเริ่มต้นได้ กรุณาตั้งบริษัทอื่นเป็นค่าเริ่มต้นก่อน";
+            if ($stmt->fetchColumn() > 0) {
+                $error = "ไม่สามารถลบบริษัทได้ เนื่องจากมีเอกสารที่อ้างอิงถึงบริษัทนี้";
             } else {
-                $stmt = $pdo->prepare("DELETE FROM companies WHERE id = ?");
-                if ($stmt->execute([$id])) {
-                    header("Location: companies.php?msg=deleted");
-                    exit;
+                $stmt = $pdo->prepare("SELECT is_default FROM companies WHERE id = ?");
+                $stmt->execute([$id]);
+                if ($stmt->fetchColumn() == 1) {
+                    $error = "ไม่สามารถลบบริษัทที่เป็นค่าเริ่มต้นได้ กรุณาตั้งบริษัทอื่นเป็นค่าเริ่มต้นก่อน";
                 } else {
-                    $error = "เกิดข้อผิดพลาดในการลบข้อมูล";
+                    $stmt = $pdo->prepare("DELETE FROM companies WHERE id = ?");
+                    if ($stmt->execute([$id])) {
+                        header("Location: companies.php?msg=deleted");
+                        exit;
+                    } else {
+                        $error = "เกิดข้อผิดพลาดในการลบข้อมูล";
+                    }
                 }
             }
         }
@@ -133,7 +135,7 @@ include_once 'includes/header.php';
                                 <?php if ($company['is_default']): ?>
                                     <span class="badge bg-success">เริ่มต้น</span>
                                 <?php else: ?>
-                                    <a href="companies.php?set_default=<?= $company['id'] ?>" class="btn btn-outline-secondary btn-table-action" title="ตั้งเป็นค่าเริ่มต้น"><i class="bi bi-check2-circle"></i></a>
+                                    <button type="button" class="btn btn-outline-secondary btn-table-action" title="ตั้งเป็นค่าเริ่มต้น" onclick="confirmSetDefault(<?= $company['id'] ?>, '<?= htmlspecialchars(addslashes($company['name_th'])) ?>')"><i class="bi bi-check2-circle"></i></button>
                                 <?php endif; ?>
                             </td>
                             <td class="text-center pe-3">
@@ -153,11 +155,26 @@ include_once 'includes/header.php';
     </div>
 </div>
 
+<!-- Hidden form for set_default POST action -->
+<form id="setDefaultForm" method="POST" style="display:none;">
+    <input type="hidden" name="action" value="set_default">
+    <input type="hidden" name="company_id" id="setDefaultId">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+</form>
+
 <script>
 function confirmDelete(id, name) {
     swalConfirm('ยืนยันการลบ', `คุณต้องการลบบริษัท "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
         if (result.isConfirmed) {
-            window.location.href = `companies.php?delete=${id}`;
+            submitPostDelete('companies.php', id);
+        }
+    });
+}
+function confirmSetDefault(id, name) {
+    swalConfirm('ยืนยัน', `ตั้ง "${name}" เป็นบริษัทเริ่มต้นใช่หรือไม่?`, 'ใช่, ตั้งเลย').then((result) => {
+        if (result.isConfirmed) {
+            document.getElementById('setDefaultId').value = id;
+            document.getElementById('setDefaultForm').submit();
         }
     });
 }

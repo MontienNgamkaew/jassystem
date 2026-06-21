@@ -71,6 +71,7 @@ function bahtText($amount) {
         foreach ($d as $i => $c) {
             $c = (int)$c;
             if ($c == 0) continue;
+            if ($i == 0 && $c == 1 && strlen((string)$n) > 1) { $r = 'เอ็ด'.$r; continue; }
             if ($i == 1 && $c == 1) { $r = 'สิบ'.$r; continue; }
             if ($i == 1)            { $r = $tens[$c].$r; continue; }
             $r = $ones[$c].($pos[$i] ?? '').$r;
@@ -144,7 +145,7 @@ foreach ($items as $i => $it) {
         <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.($i+1).'</td>
         <td style="border:1px solid #ccc;padding:4px 8px;">'.htmlspecialchars($it['item_name']).'</td>
         <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.number_format($it['quantity']).'</td>
-        <td style="text-align:center;border:1px solid #ccc;padding:4px;"></td>
+        <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.htmlspecialchars($it['unit'] ?? '').'</td>
         <td style="text-align:right;border:1px solid #ccc;padding:4px 8px;">'.number_format($it['price'],2).'</td>
         <td style="text-align:right;border:1px solid #ccc;padding:4px 8px;">'.number_format($it['total'],2).'</td>
     </tr>';
