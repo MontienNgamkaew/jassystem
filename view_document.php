@@ -69,7 +69,7 @@ include_once 'includes/header.php';
     border: 1px solid rgba(0,0,0,0.08);
 }
 .invoice-header {
-    border-bottom: 2px solid #007bff;
+    border-bottom: 2px solid #84cc16;
     padding-bottom: 20px;
     margin-bottom: 30px;
 }

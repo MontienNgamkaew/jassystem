@@ -1,42 +1,47 @@
 <?php
 require_once 'db.php';
 
-// Handle Delete
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    try {
-        $stmt = $pdo->prepare("DELETE FROM customers WHERE id = ?");
-        $stmt->execute([$id]);
-        header("Location: customers.php?msg=deleted");
-        exit();
-    } catch (\PDOException $e) {
-        $error = "ไม่สามารถลบข้อมูลได้ อาจมีการออกเอกสารในชื่อลูกค้านี้อยู่";
-    }
-}
-
-// Handle Form Submit (Add / Edit)
+// Handle Delete or Form Submit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $id = $_POST['id'] ?? '';
-    $name = $_POST['name'];
-    $tax_id = $_POST['tax_id'];
-    $phone = $_POST['phone'] ?? '';
-    $address = $_POST['address'];
+    // Verify CSRF Token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
+    }
 
-    if ($id) {
-        // Update
-        $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=?, phone=? WHERE id=?");
-        $stmt->execute([$name, $tax_id, $address, $phone, $id]);
-        header("Location: customers.php?msg=updated");
-        exit();
-    } else {
-        // Insert
+    if (isset($_POST['action']) && $_POST['action'] === 'delete') {
+        $id = $_POST['delete_id'] ?? '';
         try {
-            $stmt = $pdo->prepare("INSERT INTO customers (name, tax_id, address, phone) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$name, $tax_id, $address, $phone]);
-            header("Location: customers.php?msg=added");
+            $stmt = $pdo->prepare("DELETE FROM customers WHERE id = ?");
+            $stmt->execute([$id]);
+            header("Location: customers.php?msg=deleted");
             exit();
         } catch (\PDOException $e) {
-            $error = "เกิดข้อผิดพลาด: " . $e->getMessage();
+            $error = "ไม่สามารถลบข้อมูลได้ อาจมีการออกเอกสารในชื่อลูกค้านี้อยู่";
+        }
+    } else {
+        // Handle Form Submit (Add / Edit)
+        $id = $_POST['id'] ?? '';
+        $name = $_POST['name'];
+        $tax_id = $_POST['tax_id'];
+        $phone = $_POST['phone'] ?? '';
+        $address = $_POST['address'];
+
+        if ($id) {
+            // Update
+            $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=?, phone=? WHERE id=?");
+            $stmt->execute([$name, $tax_id, $address, $phone, $id]);
+            header("Location: customers.php?msg=updated");
+            exit();
+        } else {
+            // Insert
+            try {
+                $stmt = $pdo->prepare("INSERT INTO customers (name, tax_id, address, phone) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$name, $tax_id, $address, $phone]);
+                header("Location: customers.php?msg=added");
+                exit();
+            } catch (\PDOException $e) {
+                $error = "เกิดข้อผิดพลาด: " . $e->getMessage();
+            }
         }
     }
 }
@@ -99,7 +104,7 @@ include_once 'includes/header.php';
                             <td><?= htmlspecialchars($c['phone'] ?: '-') ?></td>
                             <td class="text-center pe-3">
                                 <button class="btn btn-outline-primary btn-table-action" title="แก้ไข"
-                                        onclick='editCustomer(<?= json_encode($c) ?>)'>
+                                        onclick="editCustomer(<?= htmlspecialchars(json_encode($c), ENT_QUOTES, 'UTF-8') ?>)">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-danger btn-table-action" title="ลบ"
@@ -129,6 +134,7 @@ include_once 'includes/header.php';
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
         <input type="hidden" name="id" id="customerId">
         <div class="mb-3">
             <label class="form-label">ชื่อลูกค้า / บริษัท <span class="text-danger">*</span></label>
@@ -159,7 +165,7 @@ include_once 'includes/header.php';
 function confirmDelete(id, name) {
     swalConfirm('ยืนยันการลบ', `คุณต้องการลบลูกค้า "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
         if (result.isConfirmed) {
-            window.location.href = `customers.php?delete=${id}`;
+            submitPostDelete('customers.php', id);
         }
     });
 }

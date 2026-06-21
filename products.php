@@ -1,42 +1,47 @@
 <?php
 require_once 'db.php';
 
-// Handle Delete
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
-    try {
-        $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
-        $stmt->execute([$id]);
-        header("Location: products.php?msg=deleted");
-        exit();
-    } catch (\PDOException $e) {
-        $error = "ไม่สามารถลบข้อมูลได้ อาจมีการใช้งานสินค้านี้อยู่";
-    }
-}
-
-// Handle Form Submit (Add / Edit)
+// Handle Delete or Form Submit
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $id = $_POST['id'] ?? '';
-    $code = $_POST['code'];
-    $name = $_POST['name'];
-    $unit = $_POST['unit'];
-    $unit_price = $_POST['unit_price'];
+    // Verify CSRF Token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
+    }
 
-    if ($id) {
-        // Update
-        $stmt = $pdo->prepare("UPDATE products SET code=?, name=?, unit=?, unit_price=? WHERE id=?");
-        $stmt->execute([$code, $name, $unit, $unit_price, $id]);
-        header("Location: products.php?msg=updated");
-        exit();
-    } else {
-        // Insert
+    if (isset($_POST['action']) && $_POST['action'] === 'delete') {
+        $id = $_POST['delete_id'] ?? '';
         try {
-            $stmt = $pdo->prepare("INSERT INTO products (code, name, unit, unit_price) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$code, $name, $unit, $unit_price]);
-            header("Location: products.php?msg=added");
+            $stmt = $pdo->prepare("DELETE FROM products WHERE id = ?");
+            $stmt->execute([$id]);
+            header("Location: products.php?msg=deleted");
             exit();
         } catch (\PDOException $e) {
-            $error = "รหัสสินค้าซ้ำ หรือเกิดข้อผิดพลาด: " . $e->getMessage();
+            $error = "ไม่สามารถลบข้อมูลได้ อาจมีการใช้งานสินค้านี้อยู่";
+        }
+    } else {
+        // Handle Form Submit (Add / Edit)
+        $id = $_POST['id'] ?? '';
+        $code = $_POST['code'];
+        $name = $_POST['name'];
+        $unit = $_POST['unit'];
+        $unit_price = $_POST['unit_price'];
+
+        if ($id) {
+            // Update
+            $stmt = $pdo->prepare("UPDATE products SET code=?, name=?, unit=?, unit_price=? WHERE id=?");
+            $stmt->execute([$code, $name, $unit, $unit_price, $id]);
+            header("Location: products.php?msg=updated");
+            exit();
+        } else {
+            // Insert
+            try {
+                $stmt = $pdo->prepare("INSERT INTO products (code, name, unit, unit_price) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$code, $name, $unit, $unit_price]);
+                header("Location: products.php?msg=added");
+                exit();
+            } catch (\PDOException $e) {
+                $error = "รหัสสินค้าซ้ำ หรือเกิดข้อผิดพลาด: " . $e->getMessage();
+            }
         }
     }
 }
@@ -112,7 +117,7 @@ include_once 'includes/header.php';
                             <td class="text-end"><?= number_format($p['unit_price'], 2) ?></td>
                             <td class="text-center pe-3">
                                 <button class="btn btn-outline-primary btn-table-action" 
-                                        onclick='editProduct(<?= json_encode($p) ?>)' title="แก้ไข">
+                                        onclick="editProduct(<?= htmlspecialchars(json_encode($p), ENT_QUOTES, 'UTF-8') ?>)" title="แก้ไข">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-danger btn-table-action" 
@@ -142,6 +147,7 @@ include_once 'includes/header.php';
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
         <input type="hidden" name="id" id="productId">
         <div class="mb-3">
             <label class="form-label">รหัสสินค้า <span class="text-danger">*</span></label>
@@ -177,6 +183,7 @@ include_once 'includes/header.php';
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
         <div class="alert alert-info py-2">
             <strong>รูปแบบไฟล์ (มี Header):</strong><br>
             คอลัมน์ A: รหัสสินค้า (Code)<br>
@@ -215,7 +222,7 @@ function clearForm() {
 function confirmDelete(id, name) {
     swalConfirm('ยืนยันการลบ', `คุณต้องการลบสินค้า "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
         if (result.isConfirmed) {
-            window.location.href = `products.php?delete=${id}`;
+            submitPostDelete('products.php', id);
         }
     });
 }

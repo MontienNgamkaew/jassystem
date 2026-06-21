@@ -2,6 +2,9 @@
 require_once 'db.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
+    }
     $file = $_FILES['csv_file'];
     
     // Check if file is uploaded without errors

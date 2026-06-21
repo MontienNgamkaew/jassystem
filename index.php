@@ -22,33 +22,49 @@ $recentDocs = $stmt->fetchAll();
 </div>
 
 <!-- Stats Row -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card card-custom text-center p-4">
-            <h1 class="text-primary"><i class="bi bi-people"></i></h1>
-            <h3><?= number_format($totalCustomers) ?></h3>
-            <p class="text-muted mb-0">ลูกค้าทั้งหมด</p>
+<div class="row mb-4 g-3">
+    <div class="col-md-3 col-sm-6">
+        <div class="card card-custom">
+            <div class="stat-card-body">
+                <div class="stat-icon"><i class="bi bi-people"></i></div>
+                <div>
+                    <div class="stat-number"><?= number_format($totalCustomers) ?></div>
+                    <div class="stat-label">ลูกค้าทั้งหมด</div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-custom text-center p-4">
-            <h1 class="text-primary"><i class="bi bi-box-seam"></i></h1>
-            <h3><?= number_format($totalProducts) ?></h3>
-            <p class="text-muted mb-0">สินค้าทั้งหมด</p>
+    <div class="col-md-3 col-sm-6">
+        <div class="card card-custom">
+            <div class="stat-card-body">
+                <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+                <div>
+                    <div class="stat-number"><?= number_format($totalProducts) ?></div>
+                    <div class="stat-label">สินค้าทั้งหมด</div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-custom text-center p-4">
-            <h1 class="text-primary"><i class="bi bi-collection"></i></h1>
-            <h3><?= number_format($totalPackages) ?></h3>
-            <p class="text-muted mb-0">แพ็กเกจ</p>
+    <div class="col-md-3 col-sm-6">
+        <div class="card card-custom">
+            <div class="stat-card-body">
+                <div class="stat-icon"><i class="bi bi-collection"></i></div>
+                <div>
+                    <div class="stat-number"><?= number_format($totalPackages) ?></div>
+                    <div class="stat-label">แพ็กเกจ</div>
+                </div>
+            </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-custom text-center p-4">
-            <h1 class="text-primary"><i class="bi bi-file-earmark-text"></i></h1>
-            <h3><?= number_format($totalDocuments) ?></h3>
-            <p class="text-muted mb-0">เอกสารที่ออกแล้ว</p>
+    <div class="col-md-3 col-sm-6">
+        <div class="card card-custom">
+            <div class="stat-card-body">
+                <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+                <div>
+                    <div class="stat-number"><?= number_format($totalDocuments) ?></div>
+                    <div class="stat-label">เอกสารที่ออกแล้ว</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

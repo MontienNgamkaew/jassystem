@@ -2,8 +2,13 @@
 require_once 'db.php';
 
 // Handle Delete
-if (isset($_GET['delete'])) {
-    $id = $_GET['delete'];
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
+    // Verify CSRF Token
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF Token");
+    }
+
+    $id = $_POST['delete_id'] ?? '';
     try {
         $stmt = $pdo->prepare("DELETE FROM packages WHERE id = ?");
         $stmt->execute([$id]);
@@ -118,6 +123,7 @@ include_once 'includes/header.php';
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
         <div class="alert alert-info py-2" style="font-size: 0.9rem;">
             <strong>รูปแบบไฟล์ (มี Header):</strong><br>
             คอลัมน์ A: รหัสแพ็กเกจ (Package Code)<br>
@@ -149,7 +155,7 @@ include_once 'includes/header.php';
 function confirmDelete(id, name) {
     swalConfirm('ยืนยันการลบ', `คุณต้องการลบแพ็กเกจ "${name}" ใช่หรือไม่?`, 'ใช่, ลบเลย').then((result) => {
         if (result.isConfirmed) {
-            window.location.href = `packages.php?delete=${id}`;
+            submitPostDelete('packages.php', id);
         }
     });
 }

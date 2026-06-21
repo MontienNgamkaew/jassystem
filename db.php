@@ -1,8 +1,15 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 $host = '127.0.0.1';
 $db   = 'jassystem';
-$user = 'root';
-$pass = '';
+$user = 'jasuser';
+$pass = 'jaspass123';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
