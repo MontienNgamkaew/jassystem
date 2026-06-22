@@ -1,0 +1,23 @@
+# ── Block sensitive files ────────────────────────────────────
+<FilesMatch "^(config\.php|db\.php|composer\.(json|lock)|migrate.*\.php|setup\.sql|hostinger_setup\.sql|migrate_v2\.sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ── Block directory listing ──────────────────────────────────
+Options -Indexes
+
+# ── Block .git and hidden files ──────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^\.git/ - [F,L]
+    RewriteRule ^vendor/.*\.php$ - [F,L]
+</IfModule>
+
+# ── PHP settings (Hostinger shared hosting) ──────────────────
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 60
+</IfModule>
