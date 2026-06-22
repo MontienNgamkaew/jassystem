@@ -77,9 +77,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         $pdo->beginTransaction();
 
         // Generate doc number inside transaction to prevent race condition
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM documents WHERE type = ? AND DATE_FORMAT(date, '%Y%m') = ? FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT doc_no FROM documents WHERE type = ? AND DATE_FORMAT(date, '%Y%m') = ? ORDER BY doc_no DESC LIMIT 1 FOR UPDATE");
         $stmt->execute([$type, $ym]);
-        $count = $stmt->fetchColumn() + 1;
+        $last_doc = $stmt->fetchColumn();
+        if ($last_doc) {
+            $parts = explode('-', $last_doc);
+            $last_seq = (int)end($parts);
+            $count = $last_seq + 1;
+        } else {
+            $count = 1;
+        }
         $doc_no = sprintf("%s-%s-%04d", $prefix, $ym, $count);
         
         // 1. Process Products (Auto-create if not exists)
@@ -179,7 +186,7 @@ include_once 'includes/header.php';
 <script>document.addEventListener('DOMContentLoaded',()=>swalError(<?= json_encode($error) ?>));</script>
 <?php endif; ?>
 
-<form method="POST" id="documentForm">
+<form method="POST" id="documentForm" novalidate>
     <input type="hidden" name="action" value="save">
     <input type="hidden" name="subtotal" id="inputSubtotal" value="0">
     <input type="hidden" name="vat_amount" id="inputVatAmount" value="0">

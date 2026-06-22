@@ -94,7 +94,7 @@ include_once 'includes/header.php';
     — เลขที่เอกสารจะคงเดิม
 </div>
 
-<form method="POST" id="editForm">
+<form method="POST" id="editForm" novalidate>
     <input type="hidden" name="action" value="update">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <input type="hidden" name="subtotal" id="inputSubtotal" value="0">

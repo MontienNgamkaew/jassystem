@@ -17,6 +17,7 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
 } catch (\PDOException $e) {
     // If the database does not exist, you might see an error here until setup.sql is run.
     throw new \PDOException($e->getMessage(), (int)$e->getCode());
