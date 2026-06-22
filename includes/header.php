@@ -105,6 +105,12 @@ function swalInfo(msg) {
             <span>จัดการผู้ใช้งาน</span>
         </a>
         <?php endif; ?>
+
+        <div class="sidebar-section-label mt-3">ช่วยเหลือ</div>
+        <a href="manual.html" target="_blank" class="sidebar-link <?= $currentPage=='manual.html' ? 'active' : '' ?>">
+            <i class="bi bi-book"></i>
+            <span>คู่มือการใช้งาน</span>
+        </a>
     </nav>
 
     <!-- Sidebar Footer -->

@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คู่มือการใช้งาน — Jasmine Active System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:       #84cc16;
+      --primary-dark:  #65a30d;
+      --primary-light: #f0fce4;
+      --sidebar-bg:    #1a2e1a;
+      --sidebar-hover: #2d4a2d;
+      --sidebar-text:  #a3bfa3;
+      --sidebar-width: 260px;
+      --bg:            #f7fee7;
+      --text:          #1a2e1a;
+      --text-muted:    #64748b;
+      --radius:        12px;
+      --shadow-md:     0 4px 12px rgba(0,0,0,0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Prompt', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: var(--sidebar-bg);
+      border-right: 2px solid var(--primary);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    .sidebar-brand {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .sidebar-brand-text { line-height: 1.2; }
+    .sidebar-brand-name { color:#fff; font-weight:700; font-size:1rem; display:block; }
+    .sidebar-brand-sub  { color:var(--sidebar-text); font-size:.72rem; }
+    .sidebar-nav { flex:1; padding:12px 10px; }
+    .sidebar-section-label {
+      font-size:.68rem; text-transform:uppercase; letter-spacing:1.2px;
+      color:#5a7a5a; padding:8px 10px 4px; font-weight:600;
+    }
+    .sidebar-link {
+      display:flex; align-items:center; gap:11px;
+      padding:10px 12px; border-radius:8px;
+      color:var(--sidebar-text); text-decoration:none;
+      font-size:.9rem; margin-bottom:2px;
+      transition: all .2s ease;
+    }
+    .sidebar-link i { font-size:1.05rem; width:20px; text-align:center; }
+    .sidebar-link:hover { background:var(--sidebar-hover); color:#fff; }
+    .sidebar-link.active {
+      background:var(--primary); color:#1a2e1a;
+      font-weight:600; box-shadow:0 2px 8px rgba(132,204,22,.4);
+    }
+    .sidebar-footer {
+      padding:14px 16px; border-top:1px solid rgba(255,255,255,.08);
+      color:#5a7a5a; font-size:.78rem; text-align:center;
+    }
+
+    /* ===== TOPBAR ===== */
+    .topbar {
+      position:sticky; top:0; z-index:100;
+      height:60px;
+      background:#fff;
+      border-bottom:3px solid var(--primary);
+      display:flex; align-items:center;
+      padding:0 24px; gap:12px;
+      box-shadow:0 1px 3px rgba(0,0,0,.08);
+    }
+    .topbar-title { flex:1; font-size:1rem; font-weight:600; }
+
+    /* ===== LAYOUT ===== */
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+    .page-content { padding:24px; max-width:960px; }
+
+    /* ===== CARDS ===== */
+    .card-custom {
+      border:none; border-top:3px solid var(--primary);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow-md);
+      background:#fff; overflow:hidden; margin-bottom:24px;
+    }
+    .card-header-custom {
+      background:var(--primary-light);
+      border-bottom:1px solid rgba(132,204,22,.2);
+      font-weight:600; color:var(--primary-dark);
+      padding:14px 20px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .card-body-custom { padding:20px; }
+
+    /* ===== STEPS ===== */
+    .step-list { list-style:none; padding:0; margin:0; }
+    .step-list li {
+      display:flex; gap:14px; align-items:flex-start;
+      padding:10px 0; border-bottom:1px solid #f0fce4;
+    }
+    .step-list li:last-child { border-bottom:none; }
+    .step-num {
+      width:30px; height:30px; border-radius:50%;
+      background:var(--primary); color:#1a2e1a;
+      font-weight:700; font-size:.85rem;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-top:2px;
+    }
+    .step-text { flex:1; font-size:.92rem; line-height:1.6; }
+
+    /* ===== BADGES / PILLS ===== */
+    .pill-quote   { background:#dbeafe; color:#1d4ed8; border-radius:20px; padding:3px 12px; font-size:.8rem; font-weight:500; }
+    .pill-invoice { background:#fef9c3; color:#854d0e; border-radius:20px; padding:3px 12px; font-size:.8rem; font-weight:500; }
+    .pill-receipt { background:#dcfce7; color:#166534; border-radius:20px; padding:3px 12px; font-size:.8rem; font-weight:500; }
+    .badge-admin  { background:#ef4444; color:#fff; border-radius:6px; padding:2px 8px; font-size:.72rem; font-weight:600; }
+    .badge-user   { background:#6b7280; color:#fff; border-radius:6px; padding:2px 8px; font-size:.72rem; font-weight:600; }
+
+    /* ===== TIP BOX ===== */
+    .tip-box {
+      background:var(--primary-light);
+      border-left:4px solid var(--primary);
+      border-radius:0 8px 8px 0;
+      padding:12px 16px;
+      margin:12px 0;
+      font-size:.88rem;
+    }
+    .warn-box {
+      background:#fef9c3;
+      border-left:4px solid #eab308;
+      border-radius:0 8px 8px 0;
+      padding:12px 16px;
+      margin:12px 0;
+      font-size:.88rem;
+    }
+
+    /* ===== FEATURE TABLE ===== */
+    .feat-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+    .feat-table th {
+      background:var(--primary-light); color:var(--primary-dark);
+      padding:10px 14px; text-align:left; font-weight:600;
+    }
+    .feat-table td { padding:9px 14px; border-bottom:1px solid #f0fce4; vertical-align:top; }
+    .feat-table tr:last-child td { border-bottom:none; }
+    .feat-table tr:hover td { background:#fafff5; }
+
+    /* ===== MENU ITEM PREVIEW ===== */
+    .menu-preview {
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--sidebar-bg); color:#fff;
+      padding:5px 12px; border-radius:8px; font-size:.85rem;
+    }
+
+    /* ===== SECTION TOC ===== */
+    .toc-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .toc-item {
+      display:flex; align-items:center; gap:10px;
+      background:#fff; border:1px solid rgba(132,204,22,.3);
+      border-radius:10px; padding:12px 14px;
+      text-decoration:none; color:var(--text);
+      transition:all .2s ease;
+    }
+    .toc-item:hover { border-color:var(--primary); background:var(--primary-light); color:var(--text); box-shadow:var(--shadow-md); }
+    .toc-icon { width:36px; height:36px; border-radius:9px; background:var(--primary-light); color:var(--primary-dark); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .toc-label { font-size:.88rem; font-weight:500; line-height:1.3; }
+    .toc-sub { font-size:.74rem; color:var(--text-muted); }
+
+    /* ===== SECTION ANCHOR ===== */
+    .section-anchor { scroll-margin-top:80px; }
+
+    /* ===== MOBILE ===== */
+    @media (max-width:991.98px) {
+      .sidebar { display:none; }
+      .main-wrapper { margin-left:0; }
+      .toc-grid { grid-template-columns:1fr; }
+    }
+
+    /* ===== PRINT ===== */
+    @media print {
+      .sidebar, .topbar { display:none; }
+      .main-wrapper { margin-left:0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-text">
+      <span class="sidebar-brand-name">Jasmine</span>
+      <span class="sidebar-brand-sub">Active System — คู่มือการใช้งาน</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section-label">สารบัญ</div>
+    <a href="#overview"   class="sidebar-link"><i class="bi bi-info-circle"></i><span>ภาพรวมระบบ</span></a>
+    <a href="#login"      class="sidebar-link"><i class="bi bi-shield-lock"></i><span>เข้าสู่ระบบ</span></a>
+    <a href="#dashboard"  class="sidebar-link"><i class="bi bi-speedometer2"></i><span>Dashboard</span></a>
+    <a href="#products"   class="sidebar-link"><i class="bi bi-box-seam"></i><span>สินค้า</span></a>
+    <a href="#packages"   class="sidebar-link"><i class="bi bi-collection"></i><span>แพ็กเกจ</span></a>
+    <a href="#customers"  class="sidebar-link"><i class="bi bi-people"></i><span>ลูกค้า</span></a>
+    <div class="sidebar-section-label mt-3">เอกสาร</div>
+    <a href="#create-doc" class="sidebar-link"><i class="bi bi-file-earmark-plus"></i><span>ออกเอกสาร</span></a>
+    <a href="#doc-list"   class="sidebar-link"><i class="bi bi-archive"></i><span>ประวัติเอกสาร</span></a>
+    <a href="#view-doc"   class="sidebar-link"><i class="bi bi-file-earmark-text"></i><span>ดูเอกสาร / PDF</span></a>
+    <div class="sidebar-section-label mt-3">ระบบ</div>
+    <a href="#companies"  class="sidebar-link"><i class="bi bi-buildings"></i><span>ข้อมูลบริษัท</span></a>
+    <a href="#users"      class="sidebar-link"><i class="bi bi-people-fill"></i><span>จัดการผู้ใช้งาน</span></a>
+    <a href="#faq"        class="sidebar-link"><i class="bi bi-question-circle"></i><span>คำถามที่พบบ่อย</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <i class="bi bi-shield-check me-1 text-success"></i> v1.0 &nbsp;|&nbsp; JAS System
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrapper">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <i class="bi bi-book me-2" style="color:var(--primary-dark)"></i>คู่มือการใช้งานระบบ Jasmine Active System
+    </div>
+    <a href="index.php" class="btn btn-sm" style="background:var(--primary);color:#1a2e1a;font-weight:500;border-radius:8px;">
+      <i class="bi bi-arrow-left me-1"></i>กลับหน้าหลัก
+    </a>
+  </header>
+
+  <div class="page-content">
+
+    <!-- ===== COVER ===== -->
+    <div class="card-custom">
+      <div style="background:linear-gradient(135deg,#1a2e1a 60%,#2d4a2d);padding:36px 32px;color:#fff;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:32px;top:50%;transform:translateY(-50%);font-size:7rem;opacity:.07;"><i class="bi bi-file-earmark-text"></i></div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+          <div style="width:48px;height:48px;background:var(--primary);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#1a2e1a;"><i class="bi bi-journal-text"></i></div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:700;line-height:1.1;">คู่มือการใช้งาน</div>
+            <div style="color:#a3bfa3;font-size:.85rem;">Jasmine Active System v1.0</div>
+          </div>
+        </div>
+        <p style="color:#c9dfc9;font-size:.9rem;margin:0;max-width:540px;">ระบบจัดการเอกสารธุรกิจ ออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน พร้อม Export PDF รองรับหลายบริษัทและหลายผู้ใช้งาน</p>
+      </div>
+    </div>
+
+    <!-- ===== TOC ===== -->
+    <div class="card-custom" id="overview">
+      <div class="card-header-custom"><i class="bi bi-list-ul"></i> สารบัญ</div>
+      <div class="card-body-custom">
+        <div class="toc-grid">
+          <a href="#login" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-shield-lock"></i></div>
+            <div><div class="toc-label">เข้าสู่ระบบ</div><div class="toc-sub">Login / ออกจากระบบ</div></div>
+          </a>
+          <a href="#dashboard" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-speedometer2"></i></div>
+            <div><div class="toc-label">Dashboard</div><div class="toc-sub">ภาพรวมสถิติและเอกสารล่าสุด</div></div>
+          </a>
+          <a href="#products" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-box-seam"></i></div>
+            <div><div class="toc-label">สินค้า</div><div class="toc-sub">เพิ่ม / แก้ไข / ลบสินค้า</div></div>
+          </a>
+          <a href="#packages" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-collection"></i></div>
+            <div><div class="toc-label">แพ็กเกจ</div><div class="toc-sub">กลุ่มสินค้าสำเร็จรูป</div></div>
+          </a>
+          <a href="#customers" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-people"></i></div>
+            <div><div class="toc-label">ลูกค้า</div><div class="toc-sub">จัดการรายชื่อลูกค้า</div></div>
+          </a>
+          <a href="#create-doc" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-file-earmark-plus"></i></div>
+            <div><div class="toc-label">ออกเอกสาร</div><div class="toc-sub">ใบเสนอราคา / แจ้งหนี้ / เสร็จ</div></div>
+          </a>
+          <a href="#doc-list" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-archive"></i></div>
+            <div><div class="toc-label">ประวัติเอกสาร</div><div class="toc-sub">ค้นหา กรอง แปลงเอกสาร</div></div>
+          </a>
+          <a href="#companies" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-buildings"></i></div>
+            <div><div class="toc-label">ข้อมูลบริษัท</div><div class="toc-sub">โลโก้ / ตราประทับ / ที่อยู่</div></div>
+          </a>
+          <a href="#users" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-people-fill"></i></div>
+            <div><div class="toc-label">จัดการผู้ใช้งาน</div><div class="toc-sub">เฉพาะ Admin</div></div>
+          </a>
+          <a href="#faq" class="toc-item">
+            <div class="toc-icon"><i class="bi bi-question-circle"></i></div>
+            <div><div class="toc-label">คำถามที่พบบ่อย</div><div class="toc-sub">FAQ &amp; แก้ปัญหาเบื้องต้น</div></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOGIN ===== -->
+    <div class="card-custom section-anchor" id="login">
+      <div class="card-header-custom"><i class="bi bi-shield-lock"></i> เข้าสู่ระบบ (Login)</div>
+      <div class="card-body-custom">
+        <p>เปิดเว็บไซต์จะพบหน้า Login สีแดง ให้กรอกข้อมูลดังนี้</p>
+        <ul class="step-list">
+          <li><div class="step-num">1</div><div class="step-text">กรอก <strong>ชื่อผู้ใช้งาน (Username)</strong> ที่ Admin กำหนดให้</div></li>
+          <li><div class="step-num">2</div><div class="step-text">กรอก <strong>รหัสผ่าน (Password)</strong></div></li>
+          <li><div class="step-num">3</div><div class="step-text">กด <strong>เข้าสู่ระบบ</strong> — หากข้อมูลถูกต้องจะเข้าสู่หน้า Dashboard</div></li>
+        </ul>
+        <div class="tip-box">
+          <i class="bi bi-info-circle-fill me-2" style="color:var(--primary-dark)"></i>
+          <strong>ค่าเริ่มต้น:</strong> Username <code>admin</code> / Password <code>admin1234</code> — ควรเปลี่ยนรหัสผ่านทันทีหลัง Login ครั้งแรก
+        </div>
+        <hr style="border-color:#f0fce4;margin:16px 0;">
+        <p style="font-size:.9rem;"><strong><i class="bi bi-box-arrow-right me-1"></i>ออกจากระบบ</strong></p>
+        <p style="font-size:.88rem;color:var(--text-muted);">กดปุ่ม <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-size:.82rem;"><i class="bi bi-box-arrow-right"></i></span> มุมขวาบนของ Topbar ทุกหน้า แล้วกด <strong>ยืนยัน</strong></p>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="card-custom section-anchor" id="dashboard">
+      <div class="card-header-custom"><i class="bi bi-speedometer2"></i> Dashboard</div>
+      <div class="card-body-custom">
+        <p>หน้าแรกหลัง Login แสดงภาพรวมของระบบ</p>
+        <table class="feat-table">
+          <thead><tr><th>ส่วนที่แสดง</th><th>รายละเอียด</th></tr></thead>
+          <tbody>
+            <tr><td><i class="bi bi-people me-1" style="color:var(--primary-dark)"></i> ลูกค้าทั้งหมด</td><td>จำนวนลูกค้าในระบบ</td></tr>
+            <tr><td><i class="bi bi-box-seam me-1" style="color:var(--primary-dark)"></i> สินค้าทั้งหมด</td><td>จำนวน SKU สินค้า</td></tr>
+            <tr><td><i class="bi bi-collection me-1" style="color:var(--primary-dark)"></i> แพ็กเกจ</td><td>จำนวนแพ็กเกจที่มีในระบบ</td></tr>
+            <tr><td><i class="bi bi-file-earmark-text me-1" style="color:var(--primary-dark)"></i> เอกสารที่ออกแล้ว</td><td>จำนวนเอกสารรวมทุกประเภท</td></tr>
+            <tr><td><i class="bi bi-clock-history me-1" style="color:var(--primary-dark)"></i> เอกสารล่าสุด</td><td>5 เอกสารล่าสุดที่ออก พร้อมเลขที่ ประเภท ลูกค้า และยอดเงิน</td></tr>
+          </tbody>
+        </table>
+        <div class="tip-box mt-3">
+          <i class="bi bi-lightbulb-fill me-2" style="color:var(--primary-dark)"></i>
+          กดปุ่ม <strong>ออกเอกสารใหม่</strong> (มุมขวาบนของหน้า) เพื่อเริ่มสร้างเอกสารได้ทันที
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PRODUCTS ===== -->
+    <div class="card-custom section-anchor" id="products">
+      <div class="card-header-custom"><i class="bi bi-box-seam"></i> จัดการสินค้า</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-box-seam"></i> สินค้า</span> ใช้จัดการรายการสินค้าและราคาหน้าต้นทุน</p>
+        <table class="feat-table">
+          <thead><tr><th>ฟิลด์</th><th>รายละเอียด</th><th>ตัวอย่าง</th></tr></thead>
+          <tbody>
+            <tr><td>รหัสสินค้า <span style="color:#ef4444">*</span></td><td>รหัส unique ห้ามซ้ำ</td><td><code>SVC-001</code></td></tr>
+            <tr><td>ชื่อสินค้า <span style="color:#ef4444">*</span></td><td>ชื่อที่แสดงในเอกสาร</td><td><code>ติดตั้งกล้องวงจรปิด</code></td></tr>
+            <tr><td>หน่วย</td><td>หน่วยนับ</td><td><code>ชุด</code> / <code>เครื่อง</code> / <code>ครั้ง</code></td></tr>
+            <tr><td>ราคาต่อหน่วย</td><td>ราคามาตรฐาน (สามารถแก้ตอนออกเอกสารได้)</td><td><code>2,500.00</code></td></tr>
+          </tbody>
+        </table>
+        <ul class="step-list mt-3">
+          <li><div class="step-num">1</div><div class="step-text">กด <strong>+ เพิ่มสินค้า</strong> มุมขวาบน → กรอกข้อมูล → กด <strong>บันทึก</strong></div></li>
+          <li><div class="step-num">2</div><div class="step-text">แก้ไข: กดปุ่ม <i class="bi bi-pencil-square"></i> ในแถว → แก้ไขในฟอร์ม Modal → บันทึก</div></li>
+          <li><div class="step-num">3</div><div class="step-text">ลบ: กดปุ่ม <i class="bi bi-trash"></i> → ยืนยัน (ลบไม่ได้ถ้ายังมีเอกสารอ้างอิง)</div></li>
+        </ul>
+        <div class="tip-box">
+          <i class="bi bi-lightbulb-fill me-2" style="color:var(--primary-dark)"></i>
+          สินค้าที่เพิ่มไว้จะ auto-suggest เมื่อพิมพ์รหัสหรือชื่อในหน้า <strong>ออกเอกสาร</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PACKAGES ===== -->
+    <div class="card-custom section-anchor" id="packages">
+      <div class="card-header-custom"><i class="bi bi-collection"></i> จัดการแพ็กเกจ</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-collection"></i> แพ็กเกจ</span> ใช้สร้างชุดสินค้าสำเร็จรูปที่มักขายรวมกัน เพื่อความรวดเร็วในการออกเอกสาร</p>
+        <ul class="step-list">
+          <li><div class="step-num">1</div><div class="step-text">กด <strong>+ เพิ่มแพ็กเกจ</strong> → กรอก <strong>รหัส / ชื่อ / คำอธิบาย</strong></div></li>
+          <li><div class="step-num">2</div><div class="step-text">เพิ่มรายการสินค้าพร้อมจำนวนและราคา → กด <strong>บันทึก</strong></div></li>
+          <li><div class="step-num">3</div><div class="step-text">เมื่อออกเอกสาร กด <strong>เลือกแพ็กเกจ</strong> → ระบบจะดึงรายการสินค้าทั้งหมดมาใส่อัตโนมัติ</div></li>
+        </ul>
+        <div class="tip-box">
+          <i class="bi bi-lightbulb-fill me-2" style="color:var(--primary-dark)"></i>
+          สามารถ <strong>บันทึกเป็นแพ็กเกจใหม่</strong> ได้ตอนออกเอกสารด้วย — สะดวกเมื่อมีชุดสินค้าใหม่ที่ยังไม่เคยบันทึก
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CUSTOMERS ===== -->
+    <div class="card-custom section-anchor" id="customers">
+      <div class="card-header-custom"><i class="bi bi-people"></i> จัดการลูกค้า</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-people"></i> ลูกค้า</span> ใช้เก็บข้อมูลผู้ซื้อที่จะแสดงในหัวเอกสาร</p>
+        <table class="feat-table">
+          <thead><tr><th>ฟิลด์</th><th>รายละเอียด</th></tr></thead>
+          <tbody>
+            <tr><td>ชื่อลูกค้า / บริษัท <span style="color:#ef4444">*</span></td><td>ชื่อที่แสดงในเอกสาร PDF</td></tr>
+            <tr><td>เลขประจำตัวผู้เสียภาษี</td><td>13 หลัก (ถ้ามี)</td></tr>
+            <tr><td>ที่อยู่</td><td>แสดงในเอกสาร</td></tr>
+            <tr><td>เบอร์โทรศัพท์</td><td>สำหรับติดต่อ</td></tr>
+          </tbody>
+        </table>
+        <ul class="step-list mt-3">
+          <li><div class="step-num">1</div><div class="step-text">กด <strong>+ เพิ่มลูกค้า</strong> → กรอกข้อมูล → กด <strong>บันทึก</strong></div></li>
+          <li><div class="step-num">2</div><div class="step-text">แก้ไข / ลบ: ใช้ปุ่ม <i class="bi bi-pencil-square"></i> / <i class="bi bi-trash"></i> ในตาราง</div></li>
+        </ul>
+        <div class="warn-box">
+          <i class="bi bi-exclamation-triangle-fill me-2" style="color:#d97706"></i>
+          ลบลูกค้าไม่ได้ถ้ายังมีเอกสารที่ออกในชื่อนั้น — ต้องลบเอกสารที่เกี่ยวข้องก่อน
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CREATE DOCUMENT ===== -->
+    <div class="card-custom section-anchor" id="create-doc">
+      <div class="card-header-custom"><i class="bi bi-file-earmark-plus"></i> ออกเอกสารใหม่</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-file-earmark-plus"></i> ออกเอกสาร</span> — หัวใจหลักของระบบ</p>
+
+        <p><strong>ประเภทเอกสาร 3 ชนิด:</strong></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <span class="pill-quote"><i class="bi bi-file-earmark me-1"></i>ใบเสนอราคา (QT)</span>
+          <span class="pill-invoice"><i class="bi bi-file-earmark-minus me-1"></i>ใบแจ้งหนี้ (INV)</span>
+          <span class="pill-receipt"><i class="bi bi-file-earmark-check me-1"></i>ใบเสร็จรับเงิน (RE)</span>
+        </div>
+
+        <ul class="step-list">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-text">
+              เลือก <strong>ประเภทเอกสาร</strong> และ <strong>วันที่</strong><br>
+              <small style="color:var(--text-muted)">เลขที่เอกสารออกอัตโนมัติ เช่น QT-202506-0001</small>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-text">เลือก <strong>บริษัทผู้ออกเอกสาร</strong> และ <strong>ลูกค้า</strong> จาก Dropdown</div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-text">
+              เพิ่มรายการสินค้า:<br>
+              &nbsp;• พิมพ์ <strong>รหัสสินค้า</strong> หรือ <strong>ชื่อ</strong> → ระบบ Auto-suggest<br>
+              &nbsp;• หรือกด <strong>เลือกแพ็กเกจ</strong> เพื่อเพิ่มทีละชุด<br>
+              &nbsp;• หรือกด <strong>Import CSV</strong> เพื่อนำเข้าจากไฟล์
+            </div>
+          </li>
+          <li>
+            <div class="step-num">4</div>
+            <div class="step-text">ปรับ <strong>จำนวน</strong> และ <strong>ราคา</strong> แต่ละรายการได้โดยตรง ระบบคำนวณยอดรวมอัตโนมัติ</div>
+          </li>
+          <li>
+            <div class="step-num">5</div>
+            <div class="step-text">
+              ตั้งค่าเพิ่มเติม:<br>
+              &nbsp;• ✅ <strong>รวม VAT 7%</strong> — เพิ่มภาษีมูลค่าเพิ่ม<br>
+              &nbsp;• ✅ <strong>แสดงวันที่บนเอกสาร</strong><br>
+              &nbsp;• ✅ <strong>บันทึกเป็นแพ็กเกจใหม่</strong> — สำหรับชุดสินค้าที่ต้องการใช้ซ้ำ
+            </div>
+          </li>
+          <li>
+            <div class="step-num">6</div>
+            <div class="step-text">กด <strong>บันทึกเอกสาร</strong> — ระบบจะสร้างเลขที่เอกสารและบันทึกลงฐานข้อมูล</div>
+          </li>
+        </ul>
+        <div class="tip-box">
+          <i class="bi bi-lightbulb-fill me-2" style="color:var(--primary-dark)"></i>
+          <strong>เลขที่เอกสาร</strong> จะออกตามลำดับแยกตามประเภทและเดือน เช่น <code>QT-202506-0001</code>, <code>INV-202506-0001</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DOCUMENT LIST ===== -->
+    <div class="card-custom section-anchor" id="doc-list">
+      <div class="card-header-custom"><i class="bi bi-archive"></i> ประวัติเอกสาร</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-archive"></i> ประวัติเอกสาร</span> แสดงเอกสารทั้งหมดพร้อมเครื่องมือค้นหาและกรอง</p>
+        <table class="feat-table">
+          <thead><tr><th>ฟีเจอร์</th><th>วิธีใช้</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><i class="bi bi-search me-1"></i> ค้นหา</td>
+              <td>พิมพ์เลขที่เอกสาร หรือชื่อลูกค้า ในช่องค้นหา → กด Enter</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-funnel me-1"></i> กรองประเภท</td>
+              <td>เลือก Dropdown: ทั้งหมด / ใบเสนอราคา / ใบแจ้งหนี้ / ใบเสร็จ</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-arrow-down-up me-1"></i> เรียงลำดับ</td>
+              <td>กดหัวตารางเพื่อเรียงลำดับตามคอลัมน์นั้น ๆ</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-arrow-right-circle me-1"></i> แปลงเอกสาร</td>
+              <td>กดปุ่ม <strong>แปลง</strong> ในแถว → ระบบสร้างเอกสารประเภทถัดไป (Quote→Invoice→Receipt) พร้อม prefill รายการอัตโนมัติ</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-file-earmark-pdf me-1"></i> ดาวน์โหลด PDF</td>
+              <td>กดปุ่ม PDF ในแถว หรือเข้าดูเอกสาร → กด พิมพ์ / Export PDF</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-pencil-square me-1"></i> แก้ไข</td>
+              <td>กดปุ่มแก้ไขในแถว → แก้ไขรายการ จำนวน ราคา</td>
+            </tr>
+            <tr>
+              <td><i class="bi bi-trash me-1"></i> ลบ</td>
+              <td>กดปุ่มลบ → ยืนยัน (ไม่สามารถกู้คืนได้)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:.88rem;color:var(--text-muted);margin-top:12px;">หน้าแสดง <strong>20 รายการ/หน้า</strong> กด &laquo; &raquo; เพื่อเปลี่ยนหน้า</p>
+      </div>
+    </div>
+
+    <!-- ===== VIEW DOCUMENT ===== -->
+    <div class="card-custom section-anchor" id="view-doc">
+      <div class="card-header-custom"><i class="bi bi-file-earmark-text"></i> ดูเอกสาร และ Export PDF</div>
+      <div class="card-body-custom">
+        <p>กดที่ <strong>เลขที่เอกสาร</strong> หรือปุ่ม <i class="bi bi-eye"></i> เพื่อเข้าดูหน้า Preview เอกสาร</p>
+        <ul class="step-list">
+          <li><div class="step-num">1</div><div class="step-text">หน้า Preview แสดงเอกสารตามรูปแบบ PDF จริง พร้อมโลโก้ / ที่อยู่บริษัท / ตราประทับ</div></li>
+          <li><div class="step-num">2</div><div class="step-text">กดปุ่ม <strong><i class="bi bi-file-earmark-pdf"></i> Download PDF</strong> เพื่อดาวน์โหลดไฟล์ PDF</div></li>
+          <li><div class="step-num">3</div><div class="step-text">กดปุ่ม <strong><i class="bi bi-printer"></i> พิมพ์</strong> เพื่อพิมพ์โดยตรงจาก Browser</div></li>
+        </ul>
+        <div class="tip-box">
+          <i class="bi bi-info-circle-fill me-2" style="color:var(--primary-dark)"></i>
+          PDF รองรับ <strong>ภาษาไทย</strong> เต็มรูปแบบ มีช่องลายเซ็น และแสดง <strong>ยอดเงินเป็นตัวอักษร</strong> อัตโนมัติ
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== COMPANIES ===== -->
+    <div class="card-custom section-anchor" id="companies">
+      <div class="card-header-custom"><i class="bi bi-buildings"></i> จัดการข้อมูลบริษัท</div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-buildings"></i> จัดการข้อมูลบริษัท</span> — กำหนดข้อมูลผู้ออกเอกสาร รองรับหลายบริษัท</p>
+        <table class="feat-table">
+          <thead><tr><th>ฟิลด์</th><th>รายละเอียด</th></tr></thead>
+          <tbody>
+            <tr><td>ชื่อบริษัท (ไทย / อังกฤษ)</td><td>แสดงในหัวเอกสาร</td></tr>
+            <tr><td>ที่อยู่</td><td>แสดงในเอกสาร</td></tr>
+            <tr><td>เบอร์โทรศัพท์</td><td>แสดงในเอกสาร</td></tr>
+            <tr><td>เลขประจำตัวผู้เสียภาษี</td><td>13 หลัก แสดงในเอกสาร</td></tr>
+            <tr><td>โลโก้บริษัท</td><td>ไฟล์รูป PNG/JPG แสดงมุมซ้ายบนของ PDF</td></tr>
+            <tr><td>ตราประทับ / ลายเซ็น</td><td>แสดงช่องลายเซ็นผู้มีอำนาจ</td></tr>
+            <tr><td>บริษัทเริ่มต้น <i class="bi bi-star-fill" style="color:var(--primary)"></i></td><td>บริษัทที่ถูกเลือกอัตโนมัติเมื่อออกเอกสาร</td></tr>
+          </tbody>
+        </table>
+        <ul class="step-list mt-3">
+          <li><div class="step-num">1</div><div class="step-text">กด <strong>+ เพิ่มบริษัท</strong> → กรอกข้อมูลและอัปโหลดโลโก้ → บันทึก</div></li>
+          <li><div class="step-num">2</div><div class="step-text">กดปุ่ม <i class="bi bi-star"></i> <strong>ตั้งเป็นค่าเริ่มต้น</strong> เพื่อให้บริษัทนั้นถูกเลือกอัตโนมัติ</div></li>
+          <li><div class="step-num">3</div><div class="step-text">แก้ไขโลโก้หรือตราประทับได้ที่ปุ่ม <i class="bi bi-pencil-square"></i> แก้ไข</div></li>
+        </ul>
+        <div class="warn-box">
+          <i class="bi bi-exclamation-triangle-fill me-2" style="color:#d97706"></i>
+          ต้องมีบริษัทอย่างน้อย 1 บริษัทในระบบเสมอ — ไม่สามารถลบบริษัทสุดท้ายหรือบริษัทค่าเริ่มต้นได้
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== USERS ===== -->
+    <div class="card-custom section-anchor" id="users">
+      <div class="card-header-custom"><i class="bi bi-people-fill"></i> จัดการผู้ใช้งาน <span class="badge-admin ms-2">Admin เท่านั้น</span></div>
+      <div class="card-body-custom">
+        <p>เมนู <span class="menu-preview"><i class="bi bi-people-fill"></i> จัดการผู้ใช้งาน</span> แสดงเฉพาะผู้ใช้ที่มี Role เป็น Admin</p>
+        <p><strong>ระดับผู้ใช้งาน:</strong></p>
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;min-width:180px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span class="badge-admin">Admin</span></div>
+            <ul style="font-size:.83rem;margin:0;padding-left:16px;color:var(--text-muted);">
+              <li>เข้าถึงทุกเมนู</li>
+              <li>จัดการผู้ใช้งาน</li>
+              <li>ลบเอกสาร</li>
+              <li>จัดการบริษัท</li>
+            </ul>
+          </div>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;min-width:180px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span class="badge-user">User</span></div>
+            <ul style="font-size:.83rem;margin:0;padding-left:16px;color:var(--text-muted);">
+              <li>ออกเอกสาร</li>
+              <li>ดูประวัติเอกสาร</li>
+              <li>จัดการสินค้า / ลูกค้า</li>
+              <li>ดู Dashboard</li>
+            </ul>
+          </div>
+        </div>
+        <ul class="step-list">
+          <li><div class="step-num">1</div><div class="step-text">กด <strong>+ เพิ่มผู้ใช้งาน</strong> → กรอก Username / ชื่อ / รหัสผ่าน / Role</div></li>
+          <li><div class="step-num">2</div><div class="step-text">แก้ไข: เปลี่ยนชื่อ, Role, หรือ Enable/Disable บัญชีได้</div></li>
+          <li><div class="step-num">3</div><div class="step-text">ลบผู้ใช้: กดปุ่ม <i class="bi bi-trash"></i> ลบ (ไม่สามารถลบบัญชีตัวเองได้)</div></li>
+        </ul>
+        <div class="warn-box">
+          <i class="bi bi-exclamation-triangle-fill me-2" style="color:#d97706"></i>
+          รหัสผ่านต้องมีความยาวอย่างน้อย <strong>6 ตัวอักษร</strong> — ระบบเก็บด้วย bcrypt hash (ปลอดภัย)
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== FAQ ===== -->
+    <div class="card-custom section-anchor" id="faq">
+      <div class="card-header-custom"><i class="bi bi-question-circle"></i> คำถามที่พบบ่อย (FAQ)</div>
+      <div class="card-body-custom">
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>เลขที่เอกสารออกอัตโนมัติอย่างไร?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ระบบนับตาม <strong>ประเภท + เดือน</strong> เช่น QT-202506-0001 หมายถึง ใบเสนอราคา มิ.ย. 2025 ฉบับที่ 1 เลขจะเริ่มใหม่ทุกเดือน</p>
+        </div>
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>แปลงใบเสนอราคาเป็นใบแจ้งหนี้อย่างไร?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ไปที่ <strong>ประวัติเอกสาร</strong> → กดปุ่ม <strong>แปลง</strong> ในแถวที่ต้องการ → ระบบ prefill รายการทั้งหมดมาให้ → กด <strong>บันทึก</strong> ได้เลย</p>
+        </div>
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>สามารถออกเอกสารในชื่อหลายบริษัทได้ไหม?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ได้ — เพิ่มบริษัทได้หลายบริษัทในเมนู <strong>จัดการข้อมูลบริษัท</strong> แต่ละเอกสารเลือกบริษัทผู้ออกได้อิสระ</p>
+        </div>
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>PDF ไม่มีตราประทับ ทำอย่างไร?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ไปที่ <strong>จัดการข้อมูลบริษัท</strong> → แก้ไขบริษัท → อัปโหลด <strong>ตราประทับ / ลายเซ็น</strong> และเปิดใช้งาน</p>
+        </div>
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>ลืมรหัสผ่าน ทำอย่างไร?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ให้ <strong>Admin</strong> เข้าไปที่เมนู <strong>จัดการผู้ใช้งาน</strong> → แก้ไขรหัสผ่านให้</p>
+        </div>
+
+        <div style="border-bottom:1px solid #f0fce4;padding-bottom:16px;margin-bottom:16px;">
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>Import CSV สินค้าได้ไหม?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ได้ — ตอนออกเอกสาร กดปุ่ม <strong>Import CSV</strong> ในส่วนรายการสินค้า ไฟล์ CSV ต้องมีคอลัมน์: <code>code, name, unit, qty, price</code></p>
+        </div>
+
+        <div>
+          <p style="font-weight:600;margin-bottom:6px;"><i class="bi bi-chevron-right me-1" style="color:var(--primary-dark)"></i>เอกสารที่ลบไปแล้วกู้คืนได้ไหม?</p>
+          <p style="font-size:.88rem;color:var(--text-muted);margin:0;">ไม่ได้ — การลบเอกสารเป็นการลบถาวรจากฐานข้อมูล ควรตรวจสอบให้แน่ใจก่อนกด <strong>ยืนยัน</strong></p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="text-align:center;padding:20px 0 40px;color:var(--text-muted);font-size:.8rem;">
+      <i class="bi bi-shield-check me-1 text-success"></i>
+      Jasmine Active System v1.0 &nbsp;|&nbsp; เอกสารนี้จัดทำสำหรับผู้ใช้งานภายใน
+    </div>
+
+  </div><!-- /page-content -->
+</div><!-- /main-wrapper -->
+
+<script>
+  // Highlight active TOC item on scroll
+  const sections = document.querySelectorAll('.section-anchor');
+  const links = document.querySelectorAll('.sidebar-link');
+  window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 90) cur = s.id; });
+    links.forEach(l => {
+      l.classList.remove('active');
+      if (l.getAttribute('href') === '#' + cur) l.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
