@@ -28,10 +28,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if ($id) {
             // Update
-            $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=?, phone=? WHERE id=?");
-            $stmt->execute([$name, $tax_id, $address, $phone, $id]);
-            header("Location: customers.php?msg=updated");
-            exit();
+            try {
+                $stmt = $pdo->prepare("UPDATE customers SET name=?, tax_id=?, address=?, phone=? WHERE id=?");
+                $stmt->execute([$name, $tax_id, $address, $phone, $id]);
+                header("Location: customers.php?msg=updated");
+                exit();
+            } catch (\PDOException $e) {
+                $error = "เกิดข้อผิดพลาด: " . $e->getMessage();
+            }
         } else {
             // Insert
             try {
