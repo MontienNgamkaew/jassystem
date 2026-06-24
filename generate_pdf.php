@@ -157,7 +157,7 @@ $html = '<!DOCTYPE html>
     <meta charset="UTF-8">
     <style>
         body {
-            font-family: garuda, freesans;
+            font-family: prompt, sans-serif;
             font-size: 9.5pt;
             color: #212529;
             margin: 0;
@@ -372,6 +372,12 @@ header("Pragma: no-cache");
 ini_set('memory_limit', '256M');
 ini_set('max_execution_time', '120');
 
+$defaultConfig = (new \Mpdf\Config\ConfigVariables())->getDefaults();
+$fontDirs = $defaultConfig['fontDir'];
+
+$defaultFontConfig = (new \Mpdf\Config\FontVariables())->getDefaults();
+$fontData = $defaultFontConfig['fontdata'];
+
 $mpdf = new \Mpdf\Mpdf([
     'mode'              => 'utf-8',
     'format'            => 'A4',
@@ -379,7 +385,16 @@ $mpdf = new \Mpdf\Mpdf([
     'margin_bottom'     => 10,
     'margin_left'       => 12,
     'margin_right'      => 12,
-    'default_font'      => 'garuda',
+    'fontDir'           => array_merge($fontDirs, [
+        __DIR__ . '/assets/fonts',
+    ]),
+    'fontdata'          => array_merge($fontData, [
+        'prompt' => [
+            'R' => 'Prompt-Regular.ttf',
+            'B' => 'Prompt-Bold.ttf',
+        ]
+    ]),
+    'default_font'      => 'prompt',
     'default_font_size' => 10,
 ]);
 
