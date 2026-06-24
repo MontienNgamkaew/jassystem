@@ -95,23 +95,24 @@ $vat_amount  = $include_vat ? round($subtotal * 0.07, 2) : 0;
 $grand_total = $subtotal + $vat_amount;
 
 // ---- Document meta ----
-$type_map  = ['Quote' => 'ใบเสนอราคา / Quotation', 'Invoice' => 'ใบส่งของ/ใบแจ้งหนี้<br><span style="font-size:10pt;">Delivery Order / Invoice</span>', 'Receipt' => 'ใบเสร็จรับเงิน / Receipt'];
-$doc_title = $type_map[$doc['type']] ?? $doc['type'];
+$typeLabels = [
+    'Quote' => 'ใบเสนอราคา / Quotation',
+    'Invoice' => 'ใบแจ้งหนี้ / Invoice',
+    'Receipt' => 'ใบเสร็จรับเงิน / Receipt'
+];
+$docTypeName = $typeLabels[$doc['type']] ?? 'เอกสาร';
 
-// Signature Labels and Colors
+// Signature Labels
 $sig_left_text = 'ผู้สั่งซื้อ';
 $sig_right_text = 'ผู้เสนอราคา';
-$title_bg_color = '#c8e6c9'; // Green for Quote
 if ($doc['type'] === 'Invoice') {
     $sig_left_text = 'ผู้รับของ';
     $sig_right_text = 'ผู้ส่งของ';
-    $title_bg_color = '#ffe0b2'; // Orange for Invoice
 } else if ($doc['type'] === 'Receipt') {
     $sig_left_text = 'ผู้จ่ายเงิน';
     $sig_right_text = 'ผู้รับเงิน';
-    $title_bg_color = '#bbdefb'; // Blue for Receipt
 }
-$doc_date  = date('d/m/', strtotime($doc['date'])) . (date('Y', strtotime($doc['date'])) + 543);
+
 $payment_terms = htmlspecialchars($settings['payment_terms'] ?? 'ภายใน 30 วัน');
 
 // Select warranty_terms based on document type
@@ -124,146 +125,248 @@ if ($doc['type'] === 'Invoice') {
 }
 $warranty = nl2br(htmlspecialchars($raw_warranty));
 
-// ---- Image tags (use relative path - mPDF basePath will resolve them) ----
-$show_date = !empty($settings['show_date_in_signature']);
-$date_row  = $show_date ? '<div style="margin-top:12px;">วันที่ &nbsp;&nbsp;&nbsp;&nbsp;........../ ........../ ..............</div>' : '';
+$show_date = (bool)$doc['show_date'];
+
 $logo_tag = '';
 if (!empty($settings['logo_path']) && file_exists(__DIR__ . '/' . $settings['logo_path'])) {
-    $logo_tag = '<img src="' . htmlspecialchars($settings['logo_path']) . '" style="max-height:70px;max-width:130px;">';
+    $logo_tag = '<img src="' . htmlspecialchars($settings['logo_path']) . '" style="max-height:80px;max-width:80px;border-radius:8px;object-fit:contain;">';
 }
 
 $stamp_tag = '';
 if (!empty($settings['stamp_enabled']) && !empty($settings['stamp_path']) && file_exists(__DIR__ . '/' . $settings['stamp_path'])) {
-    $stamp_tag = '<img src="' . htmlspecialchars($settings['stamp_path']) . '" style="max-height:100px;max-width:120px;">';
+    $stamp_tag = '<img src="' . htmlspecialchars($settings['stamp_path']) . '" style="max-height:110px;max-width:110px;opacity:0.85;">';
 }
 
 // ---- Build item rows ----
 $item_rows = '';
 foreach ($items as $i => $it) {
-    $bg = ($i % 2 == 0) ? '#fff' : '#f9f9f9';
-    $item_rows .= '<tr style="background:'.$bg.';">
-        <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.($i+1).'</td>
-        <td style="border:1px solid #ccc;padding:4px 8px;">'.htmlspecialchars($it['item_name']).'</td>
-        <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.number_format($it['quantity']).'</td>
-        <td style="text-align:center;border:1px solid #ccc;padding:4px;">'.htmlspecialchars($it['unit'] ?? '').'</td>
-        <td style="text-align:right;border:1px solid #ccc;padding:4px 8px;">'.number_format($it['price'],2).'</td>
-        <td style="text-align:right;border:1px solid #ccc;padding:4px 8px;">'.number_format($it['total'],2).'</td>
+    $bg = ($i % 2 == 0) ? '#ffffff' : '#f8f9fa';
+    $item_rows .= '<tr style="background: ' . $bg . ';">
+        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; color: #212529;">' . ($i + 1) . '</td>
+        <td style="border: 1px solid #dee2e6; padding: 8px; color: #212529;">' . htmlspecialchars($it['item_name']) . '</td>
+        <td style="text-align: center; border: 1px solid #dee2e6; padding: 8px; color: #212529;">' . number_format($it['quantity'], 2) . '</td>
+        <td style="text-align: right; border: 1px solid #dee2e6; padding: 8px; color: #212529;">' . number_format($it['price'], 2) . '</td>
+        <td style="text-align: right; border: 1px solid #dee2e6; padding: 8px; font-weight: bold; color: #212529;">' . number_format($it['total'], 2) . '</td>
     </tr>';
 }
-
-// ---- VAT row ----
-$vat_val  = $include_vat ? number_format($vat_amount, 2) : '-';
-$vat_color = $include_vat ? '#222' : '#999';
 
 // ---- Build full HTML ----
 $html = '<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family:garuda,freesans;font-size:10pt;color:#222;">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: garuda, freesans;
+            font-size: 9.5pt;
+            color: #212529;
+            margin: 0;
+            padding: 0;
+        }
+        .invoice-header {
+            border-bottom: 2px solid #84cc16;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+        .text-primary {
+            color: #84cc16;
+        }
+        .text-muted {
+            color: #6c757d;
+        }
+        .fw-bold {
+            font-weight: bold;
+        }
+        .text-end {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .table-items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 9.5pt;
+            border: 1px solid #dee2e6;
+        }
+        .table-items th {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            font-weight: bold;
+            color: #212529;
+        }
+        .table-items td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            vertical-align: middle;
+        }
+        .signature-container {
+            margin-top: 50px;
+            position: relative;
+        }
+        .signature-box {
+            border-top: 1px dashed #ccc;
+            text-align: center;
+            padding-top: 8px;
+            font-size: 9pt;
+            color: #555;
+            width: 220px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
 
-<!-- HEADER: Company Info + Logo -->
-<table width="100%" style="border-bottom:2px solid #333;margin-bottom:5px;padding-bottom:4px;">
-<tr>
-    <td width="72%" style="vertical-align:top;">
-        <div style="font-size:16pt;font-weight:bold;">'.htmlspecialchars($settings['company_name_th']).'</div>
-        <div style="font-size:10pt;color:#555;">['.htmlspecialchars($settings['company_name_en'] ?? '').']</div>
-        <div style="font-size:9pt;margin-top:2px;">'.htmlspecialchars($settings['company_address']).'</div>
-        <div style="font-size:9pt;">โทร : '.htmlspecialchars($settings['company_phone']).'  อีเมล์ : '.htmlspecialchars($settings['company_email']).'</div>
-        <div style="font-size:9pt;">เลขประจำตัวผู้เสียภาษีอากร '.htmlspecialchars($settings['company_tax_id']).'</div>
-    </td>
-    <td width="28%" style="text-align:right;vertical-align:middle;">'.$logo_tag.'</td>
-</tr>
-</table>
-
-<!-- DOCUMENT TITLE -->
-<div style="background:'.$title_bg_color.';text-align:center;font-size:12pt;font-weight:bold;padding:5px 0;margin-bottom:7px;">
-    '.$doc_title.'
+<!-- Invoice Header -->
+<div class="invoice-header">
+    <table width="100%">
+    <tr>
+        <td width="65%" style="vertical-align: middle;">
+            <table width="100%">
+            <tr>';
+if ($logo_tag) {
+    $html .= '<td width="80px" style="padding-right: 15px; vertical-align: middle;">' . $logo_tag . '</td>';
+}
+$html .= '<td style="vertical-align: middle;">
+                    <div style="font-size: 15pt; font-weight: bold; color: #212529;">' . htmlspecialchars($settings['company_name_th'] ?? 'Jasmine Active') . '</div>';
+if (!empty($settings['company_name_en'])) {
+    $html .= '<div style="font-size: 9.5pt; color: #6c757d; margin-top: 2px;">' . htmlspecialchars($settings['company_name_en']) . '</div>';
+}
+$html .= '</td>
+            </tr>
+            </table>
+        </td>
+        <td width="35%" style="text-align: right; vertical-align: middle;">
+            <div style="font-size: 16pt; font-weight: bold; color: #84cc16; margin-bottom: 4px;">' . htmlspecialchars($docTypeName) . '</div>
+            <div style="font-size: 9pt; color: #6c757d; line-height: 1.4;">
+                <strong>เลขที่เอกสาร:</strong> <span style="color: #212529; font-weight: bold;">' . htmlspecialchars($doc['doc_no']) . '</span><br>
+                <strong>วันที่:</strong> ' . date('d/m/Y', strtotime($doc['date'])) . '<br>
+                <strong>เงื่อนไขชำระเงิน:</strong> ' . $payment_terms . '
+            </div>
+        </td>
+    </tr>
+    </table>
 </div>
 
-<!-- CUSTOMER INFO + DOC META -->
-<table width="100%" style="margin-bottom:8px;font-size:9.5pt;">
+<!-- Company and Customer Info -->
+<table width="100%" style="margin-bottom: 25px;">
 <tr>
-    <td width="58%" style="vertical-align:top;padding-right:10px;">
-        <table width="100%">
-            <tr><td width="28%" style="color:#666;">ชื่อลูกค้า</td><td style="font-weight:bold;">'.htmlspecialchars($doc['cust_name']).'</td></tr>
-            <tr><td style="color:#666;">ที่อยู่</td><td>'.nl2br(htmlspecialchars($doc['cust_address'] ?? '')).'</td></tr>
-            <tr><td style="color:#666;">โทร</td><td>'.htmlspecialchars($doc['cust_phone'] ?? '-').'</td></tr>
-        </table>
+    <td width="48%" style="vertical-align: top;">
+        <div style="font-size: 9.5pt; font-weight: bold; color: #84cc16; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; margin-bottom: 6px;">ข้อมูลผู้ขาย (Seller)</div>
+        <div style="font-size: 9pt; color: #212529; line-height: 1.5;">
+            <strong>' . htmlspecialchars($settings['company_name_th'] ?? 'Jasmine Active') . '</strong><br>
+            ' . nl2br(htmlspecialchars($settings['company_address'] ?? '')) . '<br>';
+if (!empty($settings['company_phone'])) {
+    $html .= '<strong>โทร:</strong> ' . htmlspecialchars($settings['company_phone']) . '<br>';
+}
+if (!empty($settings['company_tax_id'])) {
+    $html .= '<strong>เลขประจำตัวผู้เสียภาษี:</strong> ' . htmlspecialchars($settings['company_tax_id']);
+}
+$html .= '</div>
     </td>
-    <td width="42%" style="vertical-align:top;">
-        <table width="100%">
-            <tr><td width="55%" style="color:#666;">เลขที่เอกสาร</td><td style="font-weight:bold;color:#b02020;">'.htmlspecialchars($doc['doc_no']).'</td></tr>
-            '.($doc['show_date'] ? '<tr><td style="color:#666;">วันที่</td><td>'.$doc_date.'</td></tr>' : '').'
-            <tr><td style="color:#666;">เงื่อนไขการชำระเงิน</td><td style="font-weight:bold;">'.$payment_terms.'</td></tr>
-            <tr><td style="color:#666;">เครดิต</td><td></td></tr>
-        </table>
+    <td width="4%"></td>
+    <td width="48%" style="vertical-align: top; text-align: right;">
+        <div style="font-size: 9.5pt; font-weight: bold; color: #84cc16; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; margin-bottom: 6px; text-align: right;">ข้อมูลลูกค้า (Customer)</div>
+        <div style="font-size: 9pt; color: #212529; line-height: 1.5; text-align: right;">
+            <strong>' . htmlspecialchars($doc['cust_name']) . '</strong><br>
+            ' . nl2br(htmlspecialchars($doc['cust_address'] ?? '')) . '<br>';
+if (!empty($doc['cust_phone'])) {
+    $html .= '<strong>โทร:</strong> ' . htmlspecialchars($doc['cust_phone']) . '<br>';
+}
+if (!empty($doc['cust_tax_id'])) {
+    $html .= '<strong>เลขประจำตัวผู้เสียภาษี:</strong> ' . htmlspecialchars($doc['cust_tax_id']);
+}
+$html .= '</div>
     </td>
 </tr>
 </table>
 
-<!-- ITEMS TABLE -->
-<table width="100%" style="border-collapse:collapse;margin-bottom:4px;font-size:9.5pt;">
+<!-- Document Items Table -->
+<table class="table-items">
 <thead>
-    <tr style="background:#e0e0e0;">
-        <th width="6%"  style="text-align:center;border:1px solid #aaa;padding:5px 3px;">ลำดับ</th>
-        <th width="44%" style="text-align:center;border:1px solid #aaa;padding:5px 8px;">รายละเอียด</th>
-        <th width="8%"  style="text-align:center;border:1px solid #aaa;padding:5px 3px;">จำนวน</th>
-        <th width="8%"  style="text-align:center;border:1px solid #aaa;padding:5px 3px;">หน่วย</th>
-        <th width="16%" style="text-align:center;border:1px solid #aaa;padding:5px 3px;">ราคา/หน่วย</th>
-        <th width="18%" style="text-align:center;border:1px solid #aaa;padding:5px 8px;">จำนวนเงิน</th>
+    <tr>
+        <th width="8%" class="text-center">#</th>
+        <th style="text-align: left;">รายการสินค้า / คำอธิบาย</th>
+        <th width="12%" class="text-center">จำนวน</th>
+        <th width="20%" class="text-end">ราคาต่อหน่วย (บาท)</th>
+        <th width="20%" class="text-end">ราคารวม (บาท)</th>
     </tr>
 </thead>
 <tbody>
-'.$item_rows.'
+    ' . $item_rows . '
 </tbody>
 </table>
 
-<!-- TOTALS TABLE (separate from items to avoid rowspan issues) -->
-<table width="100%" style="border-collapse:collapse;margin-bottom:6px;font-size:9.5pt;">
+<!-- Summary and Terms Section -->
+<table width="100%" style="margin-top: 10px; margin-bottom: 25px;">
 <tr>
-    <td width="60%" rowspan="4" style="border:1px solid #aaa;padding:8px;vertical-align:middle;">
-        <span style="font-weight:bold;">(ตัวอักษร)</span> '.bahtText($grand_total).'
+    <td width="55%" style="vertical-align: top; padding-right: 20px;">
+        <div style="font-size: 8.5pt; line-height: 1.4; color: #212529;">
+            <strong>จำนวนเงิน (ตัวอักษร):</strong> ' . bahtText($grand_total) . '<br><br>';
+if (!empty($raw_warranty)) {
+    $html .= '<div style="font-weight: bold; color: #84cc16; margin-bottom: 4px;">เงื่อนไข / ข้อตกลง (Terms & Conditions)</div>
+            <div style="color: #6c757d; font-size: 8pt; line-height: 1.35;">' . $warranty . '</div>';
+}
+$html .= '</div>
     </td>
-    <td width="24%" style="text-align:right;border:1px solid #aaa;padding:5px 8px;font-weight:bold;">รวมเงิน</td>
-    <td width="16%" style="text-align:right;border:1px solid #aaa;padding:5px 8px;">'.number_format($subtotal,2).'</td>
-</tr>
-<tr>
-    <td style="text-align:right;border:1px solid #aaa;padding:5px 8px;font-weight:bold;">ภาษีมูลค่าเพิ่ม 7%</td>
-    <td style="text-align:right;border:1px solid #aaa;padding:5px 8px;color:'.$vat_color.';">'.$vat_val.'</td>
-</tr>
-<tr>
-    <td style="text-align:right;border:1px solid #aaa;padding:6px 8px;font-weight:bold;background:#f0f0f0;">รวมราคาทั้งสิ้น</td>
-    <td style="text-align:right;border:1px solid #aaa;padding:6px 8px;font-weight:bold;font-size:11pt;">'.number_format($grand_total,2).'</td>
+    <td width="45%" style="vertical-align: top;">
+        <table width="100%" style="border-collapse: collapse; font-size: 9.5pt; color: #212529;">
+            <tr>
+                <td style="padding: 5px 0; text-align: left;">ยอดรวมสุทธิ (Subtotal):</td>
+                <td style="padding: 5px 0; text-align: right;">' . number_format($subtotal, 2) . ' บาท</td>
+            </tr>';
+if ($include_vat) {
+    $html .= '<tr>
+                <td style="padding: 5px 0; text-align: left;">ภาษีมูลค่าเพิ่ม (VAT 7%):</td>
+                <td style="padding: 5px 0; text-align: right;">' . number_format($vat_amount, 2) . ' บาท</td>
+            </tr>';
+}
+$html .= '<tr style="border-top: 1.5px solid #84cc16;">
+                <td style="padding: 8px 0 0 0; text-align: left;"><strong style="color: #84cc16; font-size: 11pt;">ยอดรวมทั้งสิ้น (Grand Total):</strong></td>
+                <td style="padding: 8px 0 0 0; text-align: right;"><strong style="color: #84cc16; font-size: 11pt;">' . number_format($grand_total, 2) . ' บาท</strong></td>
+            </tr>
+        </table>
+    </td>
 </tr>
 </table>
 
-<!-- WARRANTY / TERMS -->
-<div style="margin-top:6px;font-size:9pt;color:#333;line-height:1.6;">
-'.$warranty.'
+<!-- Signatures and Stamp Section -->
+<div class="signature-container" style="text-align: center; height: 110px;">';
+if ($stamp_tag) {
+    $html .= '<div style="position: absolute; right: 60px; top: -20px; z-index: 100;">' . $stamp_tag . '</div>';
+}
+$html .= '<table width="100%" style="font-size: 9.5pt; color: #212529;">
+    <tr>
+        <td width="45%" style="text-align: center; vertical-align: top; padding-top: 40px;">
+            <div class="signature-box">
+                ' . htmlspecialchars($sig_left_text) . '<br>';
+if ($show_date) {
+    $html .= '<span style="font-size: 8.5pt; color: #777;">วันที่ ____/____/____</span>';
+}
+$html .= '</div>
+        </td>
+        <td width="10%"></td>
+        <td width="45%" style="text-align: center; vertical-align: top; padding-top: 40px;">
+            <div class="signature-box">
+                ' . htmlspecialchars($sig_right_text) . '<br>';
+if ($show_date) {
+    $html .= '<span style="font-size: 8.5pt; color: #777;">วันที่ ____/____/____</span>';
+}
+$html .= '</div>
+        </td>
+    </tr>
+    </table>
 </div>
-
-<!-- SIGNATURES -->
-<table width="100%" style="margin-top:20px;font-size:9.5pt;">
-<tr>
-    <td width="45%" style="text-align:center;vertical-align:bottom;padding:8px;">
-        <div style="font-weight:bold;margin-bottom:4px;">'.$sig_left_text.'</div>
-        <div style="margin-bottom:65px;">&nbsp;<br>&nbsp;<br>&nbsp;</div>
-        <div style="margin-top:8px;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
-        '.$date_row.'
-    </td>
-    <td width="10%"></td>
-    <td width="45%" style="text-align:center;vertical-align:bottom;padding:8px;">
-        <div style="font-weight:bold;margin-bottom:4px;">'.$sig_right_text.'</div>
-        <div style="margin-bottom:5px;">&nbsp;<br>&nbsp;</div>
-        '.$stamp_tag.'
-        <div style="margin-top:8px;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
-        '.$date_row.'
-    </td>
-</tr>
-</table>
 
 </body>
 </html>';
+
+// ---- Add Cache Control Headers ----
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 
 // ---- Render PDF ----
 ini_set('memory_limit', '256M');

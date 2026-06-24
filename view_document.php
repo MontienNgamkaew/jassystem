@@ -131,7 +131,7 @@ include_once 'includes/header.php';
             <i class="bi bi-printer"></i> พิมพ์เอกสาร / PDF
         </button>
         
-        <a href="generate_pdf.php?id=<?= $doc['id'] ?>" target="_blank" class="btn btn-sm btn-outline-danger me-2">
+        <a href="generate_pdf.php?id=<?= $doc['id'] ?>&t=<?= time() ?>" target="_blank" class="btn btn-sm btn-outline-danger me-2">
             <i class="bi bi-file-earmark-pdf"></i> ดาวน์โหลด PDF
         </a>
 

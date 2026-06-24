@@ -193,7 +193,7 @@ include_once 'includes/header.php';
                                 <a href="edit_document.php?id=<?= $d['id'] ?>" class="btn btn-outline-warning btn-table-action" title="แก้ไขเอกสาร">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <a href="generate_pdf.php?id=<?= $d['id'] ?>" target="_blank" class="btn btn-outline-danger btn-table-action" title="พิมพ์ PDF">
+                                <a href="generate_pdf.php?id=<?= $d['id'] ?>&t=<?= time() ?>" target="_blank" class="btn btn-outline-danger btn-table-action" title="พิมพ์ PDF">
                                     <i class="bi bi-file-earmark-pdf"></i>
                                 </a>
                                 <button type="button" class="btn btn-outline-secondary btn-table-action" title="ลบเอกสาร" onclick="confirmDelete(<?= $d['id'] ?>, '<?= htmlspecialchars($d['doc_no']) ?>')">
