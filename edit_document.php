@@ -37,12 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     $grand_total = floatval($_POST['grand_total'] ?? 0);
     $include_vat = isset($_POST['include_vat']) ? 1 : 0;
     $show_date   = isset($_POST['show_date'])   ? 1 : 0;
+    $notes       = trim($_POST['notes'] ?? '');
 
     try {
         $pdo->beginTransaction();
 
-        $stmt = $pdo->prepare("UPDATE documents SET date=?, customer_id=?, company_id=?, total_amount=?, include_vat=?, show_date=? WHERE id=?");
-        $stmt->execute([$date, $customer_id, $company_id, $grand_total, $include_vat, $show_date, $id]);
+        $stmt = $pdo->prepare("UPDATE documents SET date=?, customer_id=?, company_id=?, total_amount=?, include_vat=?, show_date=?, notes=? WHERE id=?");
+        $stmt->execute([$date, $customer_id, $company_id, $grand_total, $include_vat, $show_date, $notes ?: null, $id]);
 
         $pdo->prepare("DELETE FROM document_items WHERE document_id = ?")->execute([$id]);
 
@@ -216,6 +217,10 @@ include_once 'includes/header.php';
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="includeVat" name="include_vat" <?= $doc['include_vat'] ? 'checked' : '' ?> onchange="calcGrandTotal()">
                                     <label class="form-check-label fw-bold text-success" for="includeVat">รวม VAT 7% (ภาษีมูลค่าเพิ่ม)</label>
+                                </div>
+                                <div class="mt-2">
+                                    <label class="form-label small mb-1 fw-bold">หมายเหตุ (Notes)</label>
+                                    <textarea class="form-control form-control-sm" name="notes" id="docNotes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ไม่บังคับ)"><?= htmlspecialchars($doc['notes'] ?? '') ?></textarea>
                                 </div>
                             </div>
                             <div class="col-md-4 text-end">

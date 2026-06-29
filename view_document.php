@@ -255,6 +255,14 @@ include_once 'includes/header.php';
         </div>
     </div>
 
+    <!-- Notes Section -->
+    <?php if (!empty($doc['notes'])): ?>
+    <div class="mb-4">
+        <h6 class="text-primary fw-bold border-bottom pb-1 mb-2">หมายเหตุ (Notes)</h6>
+        <p class="small text-dark mb-0"><?= nl2br(htmlspecialchars($doc['notes'])) ?></p>
+    </div>
+    <?php endif; ?>
+
     <!-- Signature and Stamp Section -->
     <div class="row signature-row text-center">
         <!-- Stamp overlay -->

@@ -56,6 +56,15 @@ try {
         echo "[INFO] Column 'converted_from_id' already exists in 'documents' table.\n";
     }
 
+    // 6. Check/Add notes to documents table
+    $stmt = $pdo->query("SHOW COLUMNS FROM documents LIKE 'notes'");
+    if ($stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE documents ADD COLUMN notes TEXT NULL AFTER show_date");
+        echo "[SUCCESS] Added 'notes' column to 'documents' table.\n";
+    } else {
+        echo "[INFO] Column 'notes' already exists in 'documents' table.\n";
+    }
+
     echo "\nAll migrations checked/applied successfully.\n";
     echo "Please delete this file ('run_migration.php') from your server for security.\n";
 

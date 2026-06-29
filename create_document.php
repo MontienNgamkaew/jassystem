@@ -62,7 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $show_date = isset($_POST['show_date']) ? 1 : 0;
     $grand_total = floatval($_POST['grand_total'] ?? 0);
     $include_vat = isset($_POST['include_vat']) ? 1 : 0;
-    
+    $notes = trim($_POST['notes'] ?? '');
+
     $save_as_package = isset($_POST['save_as_package']) ? true : false;
     $update_master_price = isset($_POST['update_master_price']) ? true : false;
     $new_pkg_code = $_POST['new_pkg_code'] ?? '';
@@ -141,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         }
         
         // 3. Insert Document
-        $stmt = $pdo->prepare("INSERT INTO documents (doc_no, type, date, customer_id, converted_from_id, company_id, total_amount, include_vat, show_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$doc_no, $type, $date, $customer_id, $converted_from_id ?: null, $company_id, $grand_total, $include_vat, $show_date]);
+        $stmt = $pdo->prepare("INSERT INTO documents (doc_no, type, date, customer_id, converted_from_id, company_id, total_amount, include_vat, show_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$doc_no, $type, $date, $customer_id, $converted_from_id ?: null, $company_id, $grand_total, $include_vat, $show_date, $notes ?: null]);
         $document_id = $pdo->lastInsertId();
         
         // 4. Insert Document Items
@@ -335,6 +336,10 @@ include_once 'includes/header.php';
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="saveAsPackage" name="save_as_package" onchange="togglePackageForm()">
                                     <label class="form-check-label fw-bold" for="saveAsPackage">บันทึกรายการเหล่านี้เป็น "แพ็กเกจใหม่" สำหรับใช้ในอนาคต</label>
+                                </div>
+                                <div class="mt-2">
+                                    <label class="form-label small mb-1 fw-bold">หมายเหตุ (Notes)</label>
+                                    <textarea class="form-control form-control-sm" name="notes" id="docNotes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ไม่บังคับ)"></textarea>
                                 </div>
                                 <div id="newPackageForm" style="display: none;" class="p-3 bg-light border rounded">
                                     <div class="row">

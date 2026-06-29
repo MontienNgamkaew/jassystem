@@ -332,7 +332,14 @@ $html .= '<tr style="border-top: 1.5px solid #84cc16;">
 </tr>
 </table>
 
-<!-- Signatures and Stamp Section -->
+<!-- Notes Section -->';
+if (!empty($doc['notes'])) {
+    $html .= '<div style="margin-bottom: 20px; font-size: 9pt; color: #212529;">
+        <div style="font-weight: bold; color: #84cc16; margin-bottom: 4px;">หมายเหตุ (Notes)</div>
+        <div>' . nl2br(htmlspecialchars($doc['notes'])) . '</div>
+    </div>';
+}
+$html .= '<!-- Signatures and Stamp Section -->
 <div class="signature-container" style="text-align: center; height: 110px;">';
 if ($stamp_tag) {
     $html .= '<div style="position: absolute; right: 60px; top: -20px; z-index: 100;">' . $stamp_tag . '</div>';
