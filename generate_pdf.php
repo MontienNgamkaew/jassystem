@@ -114,15 +114,22 @@ if ($doc['type'] === 'Invoice') {
 $doc_date  = date('d/m/', strtotime($doc['date'])) . (date('Y', strtotime($doc['date'])) + 543);
 $payment_terms = htmlspecialchars($settings['payment_terms'] ?? 'ภายใน 30 วัน');
 
-// Select warranty_terms based on document type
-if ($doc['type'] === 'Invoice') {
-    $raw_warranty = $settings['warranty_terms_invoice'] ?? $settings['warranty_terms'] ?? '';
-} elseif ($doc['type'] === 'Receipt') {
-    $raw_warranty = $settings['warranty_terms_receipt'] ?? $settings['warranty_terms'] ?? '';
+// Use document's own note if set, otherwise fall back to company's warranty_terms by type
+$doc_note = trim($doc['note'] ?? '');
+if ($doc_note !== '') {
+    // Document has a custom note — use it
+    $warranty = nl2br(htmlspecialchars($doc_note));
 } else {
-    $raw_warranty = $settings['warranty_terms'] ?? '';
+    // Fall back to company's warranty_terms by document type
+    if ($doc['type'] === 'Invoice') {
+        $raw_warranty = $settings['warranty_terms_invoice'] ?? $settings['warranty_terms'] ?? '';
+    } elseif ($doc['type'] === 'Receipt') {
+        $raw_warranty = $settings['warranty_terms_receipt'] ?? $settings['warranty_terms'] ?? '';
+    } else {
+        $raw_warranty = $settings['warranty_terms'] ?? '';
+    }
+    $warranty = nl2br(htmlspecialchars($raw_warranty));
 }
-$warranty = nl2br(htmlspecialchars($raw_warranty));
 
 // ---- Image tags (use relative path - mPDF basePath will resolve them) ----
 $show_date = !empty($settings['show_date_in_signature']);

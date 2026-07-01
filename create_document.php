@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $new_pkg_name = $_POST['new_pkg_name'] ?? '';
     $new_pkg_desc = $_POST['new_pkg_desc'] ?? '';
     $converted_from_id = intval($_POST['converted_from_id'] ?? 0);
+    $note = trim($_POST['doc_note'] ?? '');
 
     $prefix = match($type) { 'Invoice' => 'INV', 'Receipt' => 'RE', default => 'QT' };
     $ym = date('Ym', strtotime($date));
@@ -141,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         }
         
         // 3. Insert Document
-        $stmt = $pdo->prepare("INSERT INTO documents (doc_no, type, date, customer_id, converted_from_id, company_id, total_amount, include_vat, show_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$doc_no, $type, $date, $customer_id, $converted_from_id ?: null, $company_id, $grand_total, $include_vat, $show_date]);
+        $stmt = $pdo->prepare("INSERT INTO documents (doc_no, type, date, customer_id, converted_from_id, company_id, total_amount, include_vat, show_date, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$doc_no, $type, $date, $customer_id, $converted_from_id ?: null, $company_id, $grand_total, $include_vat, $show_date, $note ?: null]);
         $document_id = $pdo->lastInsertId();
         
         // 4. Insert Document Items
@@ -349,6 +350,11 @@ include_once 'includes/header.php';
                                         </div>
                                     </div>
                                     <small class="text-muted">* หากมีสินค้ารหัสใหม่ในตาราง ระบบจะสร้างสินค้าใหม่ลงคลังให้อัตโนมัติด้วย</small>
+                                </div>
+                                <!-- Note field -->
+                                <div class="mt-3">
+                                    <label class="form-label small fw-bold"><i class="bi bi-sticky me-1"></i>หมายเหตุเพิ่มเติมเอกสารนี้ <span class="text-muted fw-normal">(หากไม่กรอก จะใช้หมายเหตุเริ่มต้นจากตั้งค่าบริษัทแทน)</span></label>
+                                    <textarea class="form-control form-control-sm" name="doc_note" id="docNote" rows="3" placeholder="เช่น รับประกันสินค้า 1 ปี / ราคานี้รวมค่าติดตั้งแล้ว"></textarea>
                                 </div>
                             </div>
                             <div class="col-md-4 text-end">
