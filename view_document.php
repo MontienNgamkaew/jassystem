@@ -11,7 +11,8 @@ if (!$id) {
 // Fetch Document with Customer and Company Info
 $stmt = $pdo->prepare("
     SELECT d.*, c.name as customer_name, c.tax_id as customer_tax_id, c.address as customer_address, c.phone as customer_phone,
-           comp.name_th as company_name_th, comp.name_en as company_name_en, comp.address as company_address, comp.phone as company_phone, comp.tax_id as company_tax_id, comp.logo_path, comp.stamp_path, comp.stamp_enabled
+           comp.name_th as company_name_th, comp.name_en as company_name_en, comp.address as company_address, comp.phone as company_phone, comp.tax_id as company_tax_id, comp.logo_path, comp.stamp_path, comp.stamp_enabled,
+           comp.warranty_terms, comp.warranty_terms_invoice, comp.warranty_terms_receipt
     FROM documents d 
     JOIN customers c ON d.customer_id = c.id 
     LEFT JOIN companies comp ON d.company_id = comp.id
@@ -42,6 +43,20 @@ $typeLabels = [
     'Receipt' => 'ใบเสร็จรับเงิน / Receipt'
 ];
 $docTypeName = $typeLabels[$doc['type']] ?? 'เอกสาร';
+
+// Resolve warranty / terms
+$doc_note = trim($doc['note'] ?? '');
+if ($doc_note !== '') {
+    $warranty = $doc_note;
+} else {
+    if ($doc['type'] === 'Invoice') {
+        $warranty = $doc['warranty_terms_invoice'] ?? $doc['warranty_terms'] ?? '';
+    } elseif ($doc['type'] === 'Receipt') {
+        $warranty = $doc['warranty_terms_receipt'] ?? $doc['warranty_terms'] ?? '';
+    } else {
+        $warranty = $doc['warranty_terms'] ?? '';
+    }
+}
 
 // Signature labels (match generate_pdf.php logic)
 $sig_left_text = 'ผู้สั่งซื้อ';
@@ -234,7 +249,15 @@ include_once 'includes/header.php';
     </div>
 
     <!-- Summary Box -->
-    <div class="row justify-content-end mb-5">
+    <div class="row mb-5">
+        <div class="col-6">
+            <?php if (!empty($warranty)): ?>
+                <div class="p-3 bg-light rounded text-dark text-start" style="border-left: 3px solid var(--primary-color, #84cc16); font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap;">
+                    <strong class="text-primary d-block mb-1">หมายเหตุ / เงื่อนไข (Terms):</strong>
+                    <?= htmlspecialchars($warranty) ?>
+                </div>
+            <?php endif; ?>
+        </div>
         <div class="col-6">
             <table class="table table-sm table-borderless">
                 <tr>
