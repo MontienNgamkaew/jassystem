@@ -56,6 +56,33 @@ try {
         echo "[INFO] Column 'converted_from_id' already exists in 'documents' table.\n";
     }
 
+    // 6. Check/Add warranty_terms_invoice to companies table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'warranty_terms_invoice'");
+    if ($stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE companies ADD COLUMN warranty_terms_invoice TEXT NULL AFTER warranty_terms");
+        echo "[SUCCESS] Added 'warranty_terms_invoice' column to 'companies' table.\n";
+    } else {
+        echo "[INFO] Column 'warranty_terms_invoice' already exists in 'companies' table.\n";
+    }
+
+    // 7. Check/Add warranty_terms_receipt to companies table
+    $stmt = $pdo->query("SHOW COLUMNS FROM companies LIKE 'warranty_terms_receipt'");
+    if ($stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE companies ADD COLUMN warranty_terms_receipt TEXT NULL AFTER warranty_terms_invoice");
+        echo "[SUCCESS] Added 'warranty_terms_receipt' column to 'companies' table.\n";
+    } else {
+        echo "[INFO] Column 'warranty_terms_receipt' already exists in 'companies' table.\n";
+    }
+
+    // 8. Check/Add note to documents table
+    $stmt = $pdo->query("SHOW COLUMNS FROM documents LIKE 'note'");
+    if ($stmt->rowCount() == 0) {
+        $pdo->exec("ALTER TABLE documents ADD COLUMN note TEXT NULL AFTER show_date");
+        echo "[SUCCESS] Added 'note' column to 'documents' table.\n";
+    } else {
+        echo "[INFO] Column 'note' already exists in 'documents' table.\n";
+    }
+
     echo "\nAll migrations checked/applied successfully.\n";
     echo "Please delete this file ('run_migration.php') from your server for security.\n";
 
